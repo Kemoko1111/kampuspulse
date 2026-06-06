@@ -1,0 +1,86 @@
+openapi: 3.0.3
+info:
+  title: CampusPulse API
+  version: 1.0.0
+  description: Production API for CampusPulse student platform
+servers:
+  - url: /api
+paths:
+  /products:
+    get:
+      summary: List products
+      parameters:
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: category
+          in: query
+          schema: { type: string }
+      responses:
+        "200": { description: Product list }
+    post:
+      summary: Create product
+      responses:
+        "201": { description: Product created }
+  /products/{id}:
+    get:
+      summary: Get product
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: Product details }
+  /cart:
+    get:
+      summary: Get cart
+      responses:
+        "200": { description: Cart items }
+    post:
+      summary: Add to cart
+      responses:
+        "201": { description: Item added }
+  /orders:
+    get:
+      summary: List orders
+      responses:
+        "200": { description: Order list }
+    post:
+      summary: Create order from cart
+      responses:
+        "201": { description: Order created with payment URL }
+  /tasks:
+    get:
+      summary: List tasks
+      responses:
+        "200": { description: Task list }
+    post:
+      summary: Create task
+      responses:
+        "201": { description: Task created }
+  /tasks/{id}/apply:
+    post:
+      summary: Apply for task
+      responses:
+        "201": { description: Application submitted }
+  /rides:
+    post:
+      summary: Book ride
+      responses:
+        "201": { description: Ride created }
+  /paystack/initialize:
+    post:
+      summary: Initialize Paystack payment
+      responses:
+        "200": { description: Payment URL }
+  /paystack/webhook:
+    post:
+      summary: Paystack webhook
+      responses:
+        "200": { description: Event received }
+  /admin/metrics:
+    get:
+      summary: Admin dashboard metrics
+      responses:
+        "200": { description: Platform metrics }
