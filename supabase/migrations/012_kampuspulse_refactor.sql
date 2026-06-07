@@ -15,6 +15,7 @@ ALTER TABLE public.reviews ADD CONSTRAINT reviews_type_check CHECK (type IN ('pr
 -- Drop existing product policies
 DROP POLICY IF EXISTS "Products are viewable by everyone" ON public.products;
 DROP POLICY IF EXISTS "Sellers can manage their products" ON public.products;
+DROP POLICY IF EXISTS "Admins can manage products" ON public.products;
 
 -- Create new product policies
 CREATE POLICY "Products are viewable by everyone"

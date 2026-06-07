@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowLeft, Loader2, Package, Upload } from "lucide-react";
+import { ArrowLeft, Loader2, Package, Upload, Image as ImageIcon, X } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/contexts/auth-context";
 
@@ -12,6 +12,17 @@ export default function AddProductPage() {
   const { profile } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImageFile(file);
+      const url = URL.createObjectURL(file);
+      setImagePreview(url);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -19,18 +30,41 @@ export default function AddProductPage() {
     setError("");
 
     const formData = new FormData(e.currentTarget);
-    const body = {
-      title: formData.get("title") as string,
-      description: formData.get("description") as string,
-      price: Number(formData.get("price")),
-      stockQuantity: Number(formData.get("stockQuantity")),
-      condition: formData.get("condition") as string,
-      categoryId: formData.get("categoryId") as string,
-      images: [], // Placeholder for image upload
-      tags: [],
-    };
-
     try {
+      let imageUrls: string[] = [];
+
+      if (imageFile) {
+        const uploadForm = new FormData();
+        uploadForm.append("file", imageFile);
+        uploadForm.append("bucket", "products");
+
+        const uploadRes = await fetch("/api/upload", {
+          method: "POST",
+          headers: {
+            "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") || "",
+          },
+          body: uploadForm,
+        });
+
+        if (!uploadRes.ok) {
+          const upData = await uploadRes.json();
+          throw new Error(upData.error || "Failed to upload image");
+        }
+
+        const upResult = await uploadRes.json();
+        imageUrls = [upResult.data.url];
+      }
+
+      const body = {
+        title: formData.get("title") as string,
+        description: formData.get("description") as string,
+        price: Number(formData.get("price")),
+        stockQuantity: Number(formData.get("stockQuantity")),
+        condition: formData.get("condition") as string,
+        categoryId: formData.get("categoryId") as string,
+        images: imageUrls,
+        tags: [],
+      };
       const res = await fetch("/api/products", {
         method: "POST",
         headers: {
@@ -79,6 +113,29 @@ export default function AddProductPage() {
 
         <form onSubmit={handleSubmit} className="glass-card p-6 space-y-6">
           <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1.5">Product Image</label>
+              <div className="relative border-2 border-dashed border-white/10 rounded-2xl hover:border-blue-500/50 transition-colors bg-white/5 overflow-hidden">
+                {imagePreview ? (
+                  <div className="relative aspect-video">
+                    <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                    <button type="button" onClick={() => { setImageFile(null); setImagePreview(null); }} className="absolute top-2 right-2 w-8 h-8 bg-red-500/80 hover:bg-red-500 text-white flex items-center justify-center rounded-full transition-colors backdrop-blur">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+                    <div className="w-12 h-12 rounded-full bg-blue-500/10 flex items-center justify-center mb-3">
+                      <ImageIcon className="w-6 h-6 text-blue-400" />
+                    </div>
+                    <p className="text-sm font-medium mb-1">Upload Product Image</p>
+                    <p className="text-xs text-muted-foreground">PNG, JPG or WEBP (max 5MB)</p>
+                    <input type="file" name="image" accept="image/*" onChange={handleImageChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div>
               <label className="block text-sm font-medium mb-1.5">Product Title</label>
               <input name="title" required placeholder="e.g. iPhone 13 Pro" className="input-premium w-full" />

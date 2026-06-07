@@ -10,6 +10,7 @@ import {
   Utensils, Sparkles, Home, Cpu, ShoppingBag, Loader2, AlertCircle,
 } from "lucide-react";
 import { useProducts, useCart } from "@/hooks";
+import { useAuth } from "@/contexts/auth-context";
 import { formatCurrency } from "@/lib/utils";
 
 const categories = [
@@ -38,6 +39,7 @@ export default function EdwomPage() {
   const [sort, setSort]                     = useState("created_at");
   const [wishlist, setWishlist]             = useState<string[]>([]);
   const { addItem, count: cartCount } = useCart();
+  const { profile } = useAuth();
 
   const { products, count, loading, error } = useProducts({
     category: activeCategory === "all" ? undefined : activeCategory,
@@ -74,7 +76,11 @@ export default function EdwomPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-
+            {profile?.role === "admin" && (
+              <Link href="/admin/marketplace/new" className="hidden sm:flex items-center gap-2 bg-blue-600/10 text-blue-400 border border-blue-500/20 px-4 py-2 rounded-xl text-sm font-bold hover:bg-blue-600/20 transition-all">
+                <Package className="w-4 h-4" /> Add Product
+              </Link>
+            )}
             <Link href="/edwom/cart" id="cart-btn" className="relative w-10 h-10 glass border border-white/10 rounded-xl flex items-center justify-center hover:bg-white/10 transition-all">
               <ShoppingCart className="w-4 h-4" />
               {cartCount > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">{cartCount}</span>}
