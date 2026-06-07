@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { ArrowLeft, Loader2, Package, Upload, Image as ImageIcon, X } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/contexts/auth-context";
 import { apiFetch, uploadFile } from "@/lib/api-client";
+import { createClient } from "@/lib/supabase/client";
 
 export default function AddProductPage() {
   const router = useRouter();
@@ -15,6 +16,16 @@ export default function AddProductPage() {
   const [error, setError] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [categories, setCategories] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      const supabase = createClient();
+      const { data } = await supabase.from("categories").select("id, name");
+      if (data) setCategories(data);
+    };
+    fetchCategories();
+  }, []);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -52,7 +63,7 @@ export default function AddProductPage() {
         price: Number(formData.get("price")),
         stockQuantity: Number(formData.get("stockQuantity")),
         condition: formData.get("condition") as string,
-        categoryId: formData.get("categoryId") as string,
+        categoryId: formData.get("categoryId") ? String(formData.get("categoryId")) : undefined,
         images: imageUrls,
         tags: [],
       };
@@ -158,11 +169,10 @@ export default function AddProductPage() {
               <div>
                 <label className="block text-sm font-medium mb-1.5">Category</label>
                 <select name="categoryId" className="input-premium w-full appearance-none">
-                  <option value="">Select Category</option>
-                  <option value="electronics">Electronics</option>
-                  <option value="books">Books</option>
-                  <option value="clothing">Clothing</option>
-                  <option value="other">Other</option>
+                  <option value="">Select Category (Optional)</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
                 </select>
               </div>
             </div>
