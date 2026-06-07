@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { ArrowLeft, Loader2, Package, Upload, Image as ImageIcon, X } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/contexts/auth-context";
+import { apiFetch, uploadFile } from "@/lib/api-client";
 
 export default function AddProductPage() {
   const router = useRouter();
@@ -34,17 +35,7 @@ export default function AddProductPage() {
       let imageUrls: string[] = [];
 
       if (imageFile) {
-        const uploadForm = new FormData();
-        uploadForm.append("file", imageFile);
-        uploadForm.append("bucket", "products");
-
-        const uploadRes = await fetch("/api/upload", {
-          method: "POST",
-          headers: {
-            "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") || "",
-          },
-          body: uploadForm,
-        });
+        const uploadRes = await uploadFile("products", imageFile);
 
         if (!uploadRes.ok) {
           const upData = await uploadRes.json();
@@ -65,12 +56,9 @@ export default function AddProductPage() {
         images: imageUrls,
         tags: [],
       };
-      const res = await fetch("/api/products", {
+      
+      const res = await apiFetch("/api/products", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") || "",
-        },
         body: JSON.stringify(body),
       });
 
