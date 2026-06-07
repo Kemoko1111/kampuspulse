@@ -35,7 +35,7 @@ export default function AddProductPage() {
       let imageUrls: string[] = [];
 
       if (imageFile) {
-        const uploadRes = await uploadFile("products", imageFile);
+        const uploadRes = await uploadFile("product-images", imageFile);
 
         if (!uploadRes.ok) {
           const upData = await uploadRes.json();
