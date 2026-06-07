@@ -28,11 +28,16 @@ const riderNav = [
   { href: "/messages", label: "Messages", icon: MessageSquare },
 ];
 
+const adminNav = [
+  { href: "/admin", label: "Admin Dashboard", icon: LayoutDashboard },
+  { href: "/home", label: "Back to App", icon: Home },
+];
+
 export function Sidebar() {
   const pathname = usePathname();
   const { profile } = useAuth();
   
-  const navItems = profile?.role === "rider" ? riderNav : studentNav;
+  const navItems = profile?.role === "admin" ? adminNav : profile?.role === "rider" ? riderNav : studentNav;
 
   const initials = profile?.full_name?.substring(0, 2).toUpperCase() || "ST";
 
@@ -110,7 +115,7 @@ export function MobileNav() {
   const pathname = usePathname();
   const { profile } = useAuth();
   
-  const navItems = profile?.role === "rider" ? riderNav : studentNav;
+  const navItems = profile?.role === "admin" ? adminNav : profile?.role === "rider" ? riderNav : studentNav;
 
   return (
     <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 glass border-t border-white/5 safe-bottom">

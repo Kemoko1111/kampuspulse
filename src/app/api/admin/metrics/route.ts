@@ -41,6 +41,8 @@ export async function GET() {
     pendingRidersResult,
     recentTransactionsResult,
     monthlyRevenueResult,
+    recentOrdersResult,
+    recentProductsResult,
   ] = await Promise.all([
     // Total users
     supabase.from("profiles").select("id", { count: "exact", head: true }),
@@ -73,6 +75,14 @@ export async function GET() {
     supabase.from("transactions").select("id, amount, type, status, payment_method, created_at, user_id").order("created_at", { ascending: false }).limit(10),
     // Monthly revenue (last 30 days by day)
     supabase.from("transactions").select("amount, created_at").eq("status", "success").eq("type", "payment").gte("created_at", thisMonth),
+    // Recent orders
+    supabase.from("orders").select(`
+      id, total_amount, status, created_at,
+      buyer:buyer_id (full_name),
+      seller:seller_id (full_name)
+    `).order("created_at", { ascending: false }).limit(10),
+    // Recent products
+    supabase.from("products").select("id, title, price, stock_quantity, status, created_at").order("created_at", { ascending: false }).limit(20),
   ]);
 
   const totalRevenue = (revenueResult.data as { amount: number }[] | null)?.reduce((sum, t) => sum + t.amount, 0) || 0;
@@ -104,6 +114,8 @@ export async function GET() {
       ...(pendingRidersResult.data || []),
     ],
     recentTransactions: recentTransactionsResult.data || [],
+    recentOrders: recentOrdersResult.data || [],
+    recentProducts: recentProductsResult.data || [],
     revenueByDay,
   });
 }

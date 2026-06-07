@@ -35,6 +35,17 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
   if (user && AUTH_ROUTES.some((r) => pathname.startsWith(r))) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("user_id", user.id)
+      .single();
+
+    if (profile?.role === "admin") {
+      return NextResponse.redirect(new URL("/admin", request.url));
+    } else if (profile?.role === "rider") {
+      return NextResponse.redirect(new URL("/rider", request.url));
+    }
     return NextResponse.redirect(new URL("/home", request.url));
   }
 

@@ -18,6 +18,7 @@ const sidebarLinks = [
   { id: "users", label: "Users", icon: Users },
   { id: "marketplace", label: "Marketplace", icon: ShoppingBag },
   { id: "riders", label: "Riders", icon: Bike },
+  { id: "orders", label: "Orders", icon: Package },
   { id: "tasks", label: "Tasks", icon: Briefcase },
   { id: "analytics", label: "Analytics", icon: BarChart3 },
   { id: "payments", label: "Payments", icon: DollarSign },
@@ -47,6 +48,25 @@ interface AdminUser {
   avatar_url?: string;
 }
 
+
+interface AdminOrder {
+  id: string;
+  total_amount: number;
+  status: string;
+  created_at: string;
+  buyer?: { full_name: string } | null;
+  seller?: { full_name: string } | null;
+}
+
+interface AdminProduct {
+  id: string;
+  title: string;
+  price: number;
+  stock_quantity: number;
+  status: string;
+  created_at: string;
+}
+
 interface AdminTransaction {
   id: string;
   amount: number;
@@ -61,6 +81,8 @@ interface AdminData {
   recentUsers: AdminUser[];
   pendingApprovals: AdminUser[];
   recentTransactions: AdminTransaction[];
+  recentOrders: AdminOrder[];
+  recentProducts: AdminProduct[];
   revenueByDay: Record<string, number>;
 }
 
@@ -167,7 +189,11 @@ export default function AdminDashboard() {
             </div>
           </motion.div>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          
+          {activeSection === "overview" && (
+            <>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+
             {metricsCards.map(({ label, value, sub, icon: Icon, color, bg }, i) => (
               <motion.div key={label}
                 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
@@ -347,6 +373,102 @@ export default function AdminDashboard() {
               ))}
             </div>
           </motion.div>
+            </>
+          )}
+
+          {activeSection === "orders" && (
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-6">
+              <h2 className="font-display font-bold text-lg mb-4">Recent Orders</h2>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-white/10 text-muted-foreground">
+                      <th className="pb-3 font-medium">Order ID</th>
+                      <th className="pb-3 font-medium">Buyer</th>
+                      <th className="pb-3 font-medium">Seller</th>
+                      <th className="pb-3 font-medium">Amount</th>
+                      <th className="pb-3 font-medium">Status</th>
+                      <th className="pb-3 font-medium">Date</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {(data?.recentOrders ?? []).map(order => (
+                      <tr key={order.id} className="hover:bg-white/5">
+                        <td className="py-3 font-mono text-xs">{order.id.slice(0, 8)}</td>
+                        <td className="py-3">{order.buyer?.full_name || "Unknown"}</td>
+                        <td className="py-3">{order.seller?.full_name || "Unknown"}</td>
+                        <td className="py-3 font-bold">{formatCurrency(order.total_amount)}</td>
+                        <td className="py-3">
+                          <span className={cn(
+                            "px-2 py-1 rounded-full text-[10px] font-semibold border",
+                            order.status === "delivered" ? "bg-green-500/10 text-green-400 border-green-500/20" :
+                            order.status === "cancelled" ? "bg-red-500/10 text-red-400 border-red-500/20" :
+                            "bg-yellow-500/10 text-yellow-400 border-yellow-500/20"
+                          )}>{order.status}</span>
+                        </td>
+                        <td className="py-3 text-xs text-muted-foreground">{formatRelativeTime(order.created_at)}</td>
+                      </tr>
+                    ))}
+                    {(data?.recentOrders?.length === 0) && (
+                      <tr>
+                        <td colSpan={6} className="py-8 text-center text-muted-foreground">No orders found.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </motion.div>
+          )}
+
+          {activeSection === "marketplace" && (
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="font-display font-bold text-lg">Marketplace Inventory</h2>
+                <Link href="/admin/marketplace/new" className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-blue-500 transition-all shadow-[0_0_15px_rgba(37,99,235,0.3)]">
+                  <Package className="w-4 h-4" /> Add Product
+                </Link>
+              </div>
+              <div className="glass-card p-6">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-white/10 text-muted-foreground">
+                        <th className="pb-3 font-medium">Product</th>
+                        <th className="pb-3 font-medium">Price</th>
+                        <th className="pb-3 font-medium">Stock</th>
+                        <th className="pb-3 font-medium">Status</th>
+                        <th className="pb-3 font-medium">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {(data?.recentProducts ?? []).map(product => (
+                        <tr key={product.id} className="hover:bg-white/5">
+                          <td className="py-3 font-medium">{product.title}</td>
+                          <td className="py-3 font-bold text-green-400">{formatCurrency(product.price)}</td>
+                          <td className="py-3">{product.stock_quantity} units</td>
+                          <td className="py-3">
+                            <span className={cn(
+                              "px-2 py-1 rounded-full text-[10px] font-semibold border",
+                              product.status === "active" ? "bg-green-500/10 text-green-400 border-green-500/20" :
+                              "bg-red-500/10 text-red-400 border-red-500/20"
+                            )}>{product.status}</span>
+                          </td>
+                          <td className="py-3 flex items-center gap-2">
+                            <button className="text-blue-400 text-xs font-medium hover:underline">Edit</button>
+                          </td>
+                        </tr>
+                      ))}
+                      {(data?.recentProducts?.length === 0) && (
+                        <tr>
+                          <td colSpan={5} className="py-8 text-center text-muted-foreground">No products in inventory.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </motion.div>
+          )}
 
         </div>
       </main>

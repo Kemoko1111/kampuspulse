@@ -33,6 +33,11 @@ export async function POST(request: NextRequest) {
   try {
     await validateCsrf(request);
     const { profile } = await requireProfile();
+    
+    if (profile.role !== "admin") {
+      return NextResponse.json({ error: "Only admins can sell products" }, { status: 403 });
+    }
+
     const body = sanitizeObject(
       createProductSchema.parse(await request.json()),
       ["title", "description", "location"]
