@@ -50,7 +50,7 @@ module.exports = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        // CampusPulse Brand Colors
+        // KampusPulse Brand Colors
         pulse: {
           50: "#eff6ff",
           100: "#dbeafe",

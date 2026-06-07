@@ -74,9 +74,7 @@ export default function EdwomPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Link href="/edwom/sell" className="btn-primary text-sm px-4 py-2 flex items-center gap-1.5">
-              <ShoppingBag className="w-3.5 h-3.5" /> Sell
-            </Link>
+
             <Link href="/edwom/cart" id="cart-btn" className="relative w-10 h-10 glass border border-white/10 rounded-xl flex items-center justify-center hover:bg-white/10 transition-all">
               <ShoppingCart className="w-4 h-4" />
               {cartCount > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">{cartCount}</span>}
@@ -144,9 +142,7 @@ export default function EdwomPage() {
               <Package className="w-12 h-12 text-muted-foreground/30 mb-3" />
               <h3 className="font-display font-bold text-lg mb-1">No products found</h3>
               <p className="text-muted-foreground text-sm">Be the first to list something!</p>
-              <Link href="/edwom/sell" className="btn-primary mt-4 px-6 py-2.5 text-sm">
-                Sell Now
-              </Link>
+
             </div>
           ) : (
             <div className={viewMode === "grid"

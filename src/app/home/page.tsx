@@ -251,7 +251,7 @@ export default function HomePage() {
           <h2 className="font-display font-bold text-xl mb-4">Quick Actions</h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { label: "Sell Item", icon: ShoppingBag, href: "/edwom/sell", color: "text-blue-400", bg: "bg-blue-500/10" },
+              { label: "Shop Now", icon: ShoppingBag, href: "/edwom", color: "text-blue-400", bg: "bg-blue-500/10" },
               { label: "Post Task", icon: Briefcase, href: "/y3adwuma/post-task", color: "text-emerald-400", bg: "bg-emerald-500/10" },
               { label: "Book Ride", icon: Bike, href: "/ezzyride", color: "text-purple-400", bg: "bg-purple-500/10" },
               { label: "My Orders", icon: Package, href: "/edwom/orders", color: "text-orange-400", bg: "bg-orange-500/10" },

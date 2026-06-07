@@ -256,7 +256,7 @@ export default function PostTaskPage() {
                   <span className="font-bold text-emerald-400">GHS {(parseFloat(form.reward) * 0.9).toFixed(2)}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">CampusPulse fee (10%)</span>
+                  <span className="text-xs text-muted-foreground">KampusPulse fee (10%)</span>
                   <span className="text-xs text-muted-foreground">GHS {(parseFloat(form.reward) * 0.1).toFixed(2)}</span>
                 </div>
               </div>

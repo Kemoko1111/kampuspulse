@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const regDataCookie = cookieStore.get("campuspulse_reg_data");
+    const regDataCookie = cookieStore.get("kampuspulse_reg_data");
     if (regDataCookie) {
       try {
         const regData = JSON.parse(decodeURIComponent(regDataCookie.value));
@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
           status: regData.role === "student" ? "active" : "pending",
         } as never).eq("user_id", sessionData.user.id);
 
-        response.cookies.delete("campuspulse_reg_data");
+        response.cookies.delete("kampuspulse_reg_data");
       } catch (e) {
         console.error("Failed to parse registration cookie", e);
       }

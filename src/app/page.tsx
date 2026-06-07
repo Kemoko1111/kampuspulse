@@ -71,7 +71,7 @@ const testimonials = [
   {
     name: "Abena Mensah",
     role: "Level 300 Student",
-    text: "CampusPulse changed how I buy and sell on campus. EDWOM is just amazing!",
+    text: "KampusPulse changed how I buy and sell on campus. EDWOM is just amazing!",
     avatar: "AM",
     rating: 5,
   },
@@ -113,7 +113,7 @@ export default function LandingPage() {
                 <Zap className="w-4 h-4 text-white" />
               </div>
               <span className="font-display font-bold text-xl gradient-text">
-                CampusPulse
+                KampusPulse
               </span>
             </div>
 
@@ -442,7 +442,7 @@ export default function LandingPage() {
               </div>
               <h2 className="font-display font-black text-4xl mb-4">
                 Ready to join{" "}
-                <span className="gradient-text">CampusPulse?</span>
+                <span className="gradient-text">KampusPulse?</span>
               </h2>
               <p className="text-muted-foreground mb-8 max-w-lg mx-auto">
                 Join 12,000+ UCC students already buying, selling, earning, and
@@ -469,11 +469,11 @@ export default function LandingPage() {
                 <Zap className="w-3.5 h-3.5 text-white" />
               </div>
               <span className="font-display font-bold text-lg gradient-text">
-                CampusPulse
+                KampusPulse
               </span>
             </div>
             <p className="text-xs text-muted-foreground text-center">
-              © 2025 CampusPulse. Built with ❤️ for University of Cape Coast students.
+              © 2025 KampusPulse. Built with ❤️ for University of Cape Coast students.
             </p>
             <div className="flex gap-6">
               {["Privacy", "Terms", "Support"].map((link) => (

@@ -10,7 +10,6 @@ import {
   Star, Shield, CheckCircle,
   Clock, Bike,
 } from "lucide-react";
-import { Sidebar, MobileNav, TopBar } from "@/components/layout/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { Ride, Profile } from "@/types";
 
@@ -118,11 +117,7 @@ export default function TrackPage() {
   const eta = ride.duration_minutes ?? 0;
 
   return (
-    <div className="min-h-screen bg-background">
-      <Sidebar />
-      <TopBar title="Live Tracking" />
-      <main className="lg:pl-64 pb-20 lg:pb-0 min-h-screen">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6">
           <Link href="/ezzyride" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6">
             <ArrowLeft className="w-4 h-4" /> Back to EzzyRide
           </Link>
@@ -276,15 +271,12 @@ export default function TrackPage() {
                 className="glass border border-green-500/10 rounded-2xl p-4 flex items-center gap-3">
                 <Shield className="w-5 h-5 text-green-400 flex-shrink-0" />
                 <div>
-                  <p className="text-sm font-medium text-foreground">Rider is verified by CampusPulse</p>
+                  <p className="text-sm font-medium text-foreground">Rider is verified by KampusPulse</p>
                   <p className="text-xs text-muted-foreground">All riders pass ID & background verification</p>
                 </div>
               </motion.div>
             </div>
           </div>
-        </div>
-      </main>
-      <MobileNav />
     </div>
   );
 }

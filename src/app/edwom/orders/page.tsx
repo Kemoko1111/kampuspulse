@@ -8,7 +8,6 @@ import {
   CheckCircle, Truck, XCircle, Star, MessageSquare,
   Loader2,
 } from "lucide-react";
-import { Sidebar, MobileNav, TopBar } from "@/components/layout/navigation";
 import { useOrders } from "@/hooks/index";
 import { formatDate } from "@/lib/utils";
 import type { Order, OrderItem } from "@/types";
@@ -46,11 +45,7 @@ export default function OrdersPage() {
   }), [orderList, activeTab, search]);
 
   return (
-    <div className="min-h-screen bg-background">
-      <Sidebar />
-      <TopBar title="Orders" />
-      <main className="lg:pl-64 pb-20 lg:pb-0 min-h-screen">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 space-y-5">
+    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 space-y-5">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
             <div>
               <h1 className="font-display font-black text-3xl">My Orders</h1>
@@ -149,9 +144,6 @@ export default function OrdersPage() {
               })}
             </div>
           )}
-        </div>
-      </main>
-      <MobileNav />
     </div>
   );
 }

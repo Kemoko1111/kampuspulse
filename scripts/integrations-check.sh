@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 ENV="$ROOT/.env.local"
 
-echo "CampusPulse integration status"
+echo "KampusPulse integration status"
 echo "=============================="
 
 check() {

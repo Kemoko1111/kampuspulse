@@ -14,7 +14,7 @@ CREATE TABLE public.profiles (
   department        TEXT,
   year_of_study     INT CHECK (year_of_study BETWEEN 1 AND 6),
   student_id        TEXT,
-  role              TEXT NOT NULL DEFAULT 'student' CHECK (role IN ('student','vendor','rider','admin')),
+  role              TEXT NOT NULL DEFAULT 'student' CHECK (role IN ('student','rider','admin')),
   status            TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','suspended','pending','banned')),
   is_verified       BOOLEAN DEFAULT FALSE,
   rating            NUMERIC(3,2) DEFAULT 0.0,
@@ -38,24 +38,7 @@ INSERT INTO public.platform_settings (key, value) VALUES
   ('ride_fare', '{"base_fare": 5, "per_km_rate": 2.5, "per_min_rate": 0.5}'),
   ('delivery_fare', '{"base_fare": 8, "per_km_rate": 3, "per_min_rate": 0.75}');
 -- 002: Stores, categories, products
-CREATE TABLE public.stores (
-  id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  owner_id      UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
-  name          TEXT NOT NULL,
-  slug          TEXT NOT NULL UNIQUE,
-  description   TEXT,
-  logo_url      TEXT,
-  banner_url    TEXT,
-  location      TEXT,
-  phone         TEXT,
-  email         TEXT,
-  is_verified   BOOLEAN DEFAULT FALSE,
-  is_active     BOOLEAN DEFAULT TRUE,
-  rating        NUMERIC(3,2) DEFAULT 0.0,
-  total_sales   INT DEFAULT 0,
-  deleted_at    TIMESTAMPTZ,
-  created_at    TIMESTAMPTZ DEFAULT NOW()
-);
+
 
 CREATE TABLE public.categories (
   id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -84,7 +67,6 @@ INSERT INTO public.categories (name, slug, sort_order) VALUES
 CREATE TABLE public.products (
   id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   seller_id       UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
-  store_id        UUID REFERENCES public.stores(id) ON DELETE SET NULL,
   category_id     UUID REFERENCES public.categories(id),
   title           TEXT NOT NULL,
   description     TEXT,
@@ -340,7 +322,7 @@ CREATE TABLE public.reviews (
   id                    UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   reviewer_id           UUID REFERENCES public.profiles(id) NOT NULL,
   reviewed_id           UUID REFERENCES public.profiles(id) NOT NULL,
-  type                  TEXT NOT NULL CHECK (type IN ('product','vendor','task_worker','rider','delivery')),
+  type                  TEXT NOT NULL CHECK (type IN ('product','task_worker','rider','delivery')),
   reference_id          UUID NOT NULL,
   rating                INT NOT NULL CHECK (rating BETWEEN 1 AND 5),
   comment               TEXT,
@@ -407,7 +389,7 @@ RETURNS UUID AS $$
 $$ LANGUAGE sql STABLE SECURITY DEFINER;
 
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.stores ENABLE ROW LEVEL SECURITY;
+
 ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.order_items ENABLE ROW LEVEL SECURITY;
@@ -431,9 +413,24 @@ CREATE POLICY "profiles_update" ON public.profiles FOR UPDATE USING (auth.uid() 
 
 -- Products
 CREATE POLICY "products_select" ON public.products FOR SELECT USING (status = 'active' AND deleted_at IS NULL);
-CREATE POLICY "products_insert" ON public.products FOR INSERT WITH CHECK (get_profile_id() = seller_id);
-CREATE POLICY "products_update" ON public.products FOR UPDATE USING (get_profile_id() = seller_id);
-CREATE POLICY "products_delete" ON public.products FOR DELETE USING (get_profile_id() = seller_id);
+CREATE POLICY "products_insert" ON public.products FOR INSERT WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE profiles.id = auth.uid() AND profiles.role = 'admin'
+  )
+);
+CREATE POLICY "products_update" ON public.products FOR UPDATE USING (
+  EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE profiles.id = auth.uid() AND profiles.role = 'admin'
+  )
+);
+CREATE POLICY "products_delete" ON public.products FOR DELETE USING (
+  EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE profiles.id = auth.uid() AND profiles.role = 'admin'
+  )
+);
 
 -- Orders
 CREATE POLICY "orders_select" ON public.orders FOR SELECT
@@ -599,7 +596,6 @@ INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_typ
 VALUES
   ('avatars', 'avatars', true, 2097152, ARRAY['image/jpeg','image/png','image/webp']),
   ('product-images', 'product-images', true, 5242880, ARRAY['image/jpeg','image/png','image/webp','image/gif']),
-  ('store-banners', 'store-banners', true, 5242880, ARRAY['image/jpeg','image/png','image/webp']),
   ('rider-documents', 'rider-documents', false, 10485760, ARRAY['image/jpeg','image/png','image/webp','application/pdf']),
   ('task-attachments', 'task-attachments', false, 10485760, ARRAY['image/jpeg','image/png','image/webp','application/pdf'])
 ON CONFLICT (id) DO NOTHING;
@@ -616,11 +612,7 @@ CREATE POLICY "product_images_upload" ON storage.objects FOR INSERT
 CREATE POLICY "product_images_read" ON storage.objects FOR SELECT
   USING (bucket_id = 'product-images');
 
-CREATE POLICY "store_banners_upload" ON storage.objects FOR INSERT
-  WITH CHECK (bucket_id = 'store-banners' AND auth.uid() IS NOT NULL);
 
-CREATE POLICY "store_banners_read" ON storage.objects FOR SELECT
-  USING (bucket_id = 'store-banners');
 
 CREATE POLICY "rider_docs_upload" ON storage.objects FOR INSERT
   WITH CHECK (bucket_id = 'rider-documents' AND auth.uid()::text = (storage.foldername(name))[1]);

@@ -3,13 +3,12 @@ import type { NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 const PRIVATE_ROUTES = [
-  "/home", "/edwom/sell", "/edwom/cart", "/edwom/checkout", "/edwom/orders",
-  "/y3adwuma/post-task", "/messages", "/notifications", "/profile", "/settings", "/admin", "/vendor", "/rider",
+  "/home", "/edwom/cart", "/edwom/checkout", "/edwom/orders",
+  "/y3adwuma/post-task", "/messages", "/notifications", "/profile", "/settings", "/admin", "/rider",
 ];
 
 const ADMIN_ROUTES = ["/admin"];
 const RIDER_ROUTES = ["/rider"];
-const VENDOR_ROUTES = ["/vendor"];
 const AUTH_ROUTES = ["/login", "/register", "/reset-password"];
 
 export async function middleware(request: NextRequest) {
@@ -47,8 +46,7 @@ export async function middleware(request: NextRequest) {
   }
 
   if (user && (ADMIN_ROUTES.some((r) => pathname.startsWith(r)) ||
-    RIDER_ROUTES.some((r) => pathname.startsWith(r)) ||
-    VENDOR_ROUTES.some((r) => pathname.startsWith(r)))) {
+    RIDER_ROUTES.some((r) => pathname.startsWith(r)))) {
     const { data: profile } = await supabase
       .from("profiles")
       .select("role")
@@ -59,10 +57,6 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL("/home", request.url));
     }
     if (RIDER_ROUTES.some((r) => pathname.startsWith(r)) && profile?.role !== "rider" && profile?.role !== "admin") {
-      return NextResponse.redirect(new URL("/home", request.url));
-    }
-    if (VENDOR_ROUTES.some((r) => pathname.startsWith(r)) &&
-      !["vendor", "student", "admin"].includes(profile?.role || "")) {
       return NextResponse.redirect(new URL("/home", request.url));
     }
   }

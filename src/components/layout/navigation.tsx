@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { motion } from "framer-motion";
 import {
   Home, ShoppingBag, Briefcase, Bike,
   MessageSquare, Bell, User, Zap, Settings,
@@ -21,12 +20,7 @@ const studentNav = [
   { href: "/messages", label: "Messages", icon: MessageSquare },
 ];
 
-const vendorNav = [
-  { href: "/vendor", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/edwom", label: "Marketplace", icon: ShoppingBag },
-  { href: "/y3adwuma", label: "Tasks", icon: Briefcase },
-  { href: "/messages", label: "Messages", icon: MessageSquare },
-];
+
 
 const riderNav = [
   { href: "/rider", label: "Driver App", icon: Bike },
@@ -38,9 +32,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const { profile } = useAuth();
   
-  const navItems = profile?.role === "vendor" ? vendorNav 
-                 : profile?.role === "rider" ? riderNav 
-                 : studentNav;
+  const navItems = profile?.role === "rider" ? riderNav : studentNav;
 
   const initials = profile?.full_name?.substring(0, 2).toUpperCase() || "ST";
 
@@ -52,7 +44,7 @@ export function Sidebar() {
           <Zap className="w-4 h-4 text-white" />
         </div>
         <div>
-          <div className="font-display font-black text-lg gradient-text leading-none">CampusPulse</div>
+          <div className="font-display font-black text-lg gradient-text leading-none">KampusPulse</div>
           <div className="text-[10px] text-muted-foreground">University of Cape Coast</div>
         </div>
       </Link>
@@ -71,7 +63,7 @@ export function Sidebar() {
               <Icon className="w-4 h-4 flex-shrink-0" />
               {label}
               {active && (
-                <motion.div layoutId="sidebar-active" className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-400" />
+                <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-400" />
               )}
             </Link>
           );
@@ -118,9 +110,7 @@ export function MobileNav() {
   const pathname = usePathname();
   const { profile } = useAuth();
   
-  const navItems = profile?.role === "vendor" ? vendorNav 
-                 : profile?.role === "rider" ? riderNav 
-                 : studentNav;
+  const navItems = profile?.role === "rider" ? riderNav : studentNav;
 
   return (
     <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 glass border-t border-white/5 safe-bottom">
@@ -134,7 +124,7 @@ export function MobileNav() {
             )}>
               <div className={cn("relative p-1.5 rounded-lg transition-all", active && "bg-blue-500/15")}>
                 <Icon className="w-5 h-5" />
-                {active && <motion.div layoutId="mobile-active" className="absolute inset-0 rounded-lg bg-blue-500/10" />}
+                {active && <div className="absolute inset-0 rounded-lg bg-blue-500/10" />}
               </div>
               <span className="text-[10px] font-medium">{label}</span>
             </Link>
@@ -157,7 +147,7 @@ export function TopBar({ title }: { title?: string }) {
             <Zap className="w-4 h-4 text-white" />
           </div>
           <span className="font-display font-bold text-lg gradient-text">
-            {title || "CampusPulse"}
+            {title || "KampusPulse"}
           </span>
         </div>
         <div className="flex items-center gap-2">

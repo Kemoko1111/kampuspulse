@@ -7,7 +7,6 @@ import {
   ShoppingCart, Trash2, Plus, Minus, ArrowLeft,
   ArrowRight, Tag, ShieldCheck, Truck, Loader2, Package,
 } from "lucide-react";
-import { Sidebar, MobileNav, TopBar } from "@/components/layout/navigation";
 import { useCart } from "@/hooks/useCart";
 
 interface CartProduct {
@@ -46,11 +45,7 @@ export default function CartPage() {
   const orderTotal = subtotal + deliveryFee - discount;
 
   return (
-    <div className="min-h-screen bg-background">
-      <Sidebar />
-      <TopBar title="Cart" />
-      <main className="lg:pl-64 pb-20 lg:pb-0 min-h-screen">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
           <div className="flex items-center gap-3 mb-6">
             <Link href="/edwom" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
               <ArrowLeft className="w-4 h-4" /> Continue Shopping
@@ -195,9 +190,6 @@ export default function CartPage() {
               </div>
             </div>
           )}
-        </div>
-      </main>
-      <MobileNav />
     </div>
   );
 }

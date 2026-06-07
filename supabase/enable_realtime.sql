@@ -1,4 +1,4 @@
--- Enable Supabase Realtime for CampusPulse tables
+-- Enable Supabase Realtime for KampusPulse tables
 -- Run this in SQL Editor (Dashboard → SQL → New query)
 
 ALTER PUBLICATION supabase_realtime ADD TABLE public.orders;

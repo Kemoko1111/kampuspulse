@@ -89,14 +89,14 @@ function LoginForm() {
               <Zap className="w-5 h-5 text-white" />
             </div>
             <span className="font-display font-black text-2xl gradient-text">
-              CampusPulse
+              KampusPulse
             </span>
           </Link>
           <h1 className="font-display font-bold text-3xl text-foreground mb-2">
             Welcome back
           </h1>
           <p className="text-muted-foreground">
-            Sign in to your CampusPulse account
+            Sign in to your KampusPulse account
           </p>
         </motion.div>
 

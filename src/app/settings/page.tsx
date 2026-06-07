@@ -3,7 +3,6 @@
 import { motion } from "framer-motion";
 import { useState } from "react";
 import { Bell, Shield, Moon, Globe, Trash2, LogOut, ChevronRight, User, CreditCard, Smartphone } from "lucide-react";
-import { Sidebar, MobileNav, TopBar } from "@/components/layout/navigation";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 const settingSections = [
@@ -45,14 +44,10 @@ export default function SettingsPage() {
   const toggle = (key: string) => setToggles(prev => ({ ...prev, [key]: !prev[key as keyof typeof prev] }));
 
   return (
-    <div className="min-h-screen bg-background">
-      <Sidebar />
-      <TopBar title="Settings" />
-      <main className="lg:pl-64 pb-20 lg:pb-0 min-h-screen">
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 space-y-6">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
             <h1 className="font-display font-black text-3xl mb-1">Settings</h1>
-            <p className="text-muted-foreground text-sm">Manage your CampusPulse preferences</p>
+            <p className="text-muted-foreground text-sm">Manage your KampusPulse preferences</p>
           </motion.div>
 
           {/* Theme */}
@@ -122,10 +117,7 @@ export default function SettingsPage() {
             </div>
           </motion.div>
 
-          <p className="text-center text-xs text-muted-foreground pb-4">CampusPulse v1.0 · University of Cape Coast</p>
-        </div>
-      </main>
-      <MobileNav />
+          <p className="text-center text-xs text-muted-foreground pb-4">KampusPulse v1.0 · University of Cape Coast</p>
     </div>
   );
 }

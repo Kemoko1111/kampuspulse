@@ -1,4 +1,4 @@
-# CampusPulse – Project Documentation
+# KampusPulse – Project Documentation
 
 > **The premier digital ecosystem for University of Cape Coast (UCC) students**
 > Built with Next.js 15, TypeScript, Tailwind CSS, Supabase & Framer Motion
@@ -16,7 +16,7 @@ Run with: `npm run dev`
 ## 📁 Project Structure
 
 ```
-campuspulse/
+kampuspulse/
 ├── src/
 │   ├── app/
 │   │   ├── (auth)/

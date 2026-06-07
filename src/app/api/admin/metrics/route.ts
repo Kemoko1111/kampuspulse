@@ -27,7 +27,7 @@ export async function GET() {
   const [
     usersResult,
     studentsResult,
-    vendorsResult,
+    productsResult,
     ridersResult,
     pendingResult,
     ordersResult,
@@ -37,7 +37,7 @@ export async function GET() {
     tasksResult,
     ridesResult,
     recentUsersResult,
-    pendingVendorsResult,
+
     pendingRidersResult,
     recentTransactionsResult,
     monthlyRevenueResult,
@@ -46,8 +46,8 @@ export async function GET() {
     supabase.from("profiles").select("id", { count: "exact", head: true }),
     // Students
     supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "student"),
-    // Vendors
-    supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "vendor"),
+    // Products
+    supabase.from("products").select("id", { count: "exact", head: true }),
     // Riders
     supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "rider"),
     // Pending approvals
@@ -66,8 +66,7 @@ export async function GET() {
     supabase.from("rides").select("id", { count: "exact", head: true }),
     // Recent users (last 10)
     supabase.from("profiles").select("id, full_name, role, status, created_at, avatar_url").order("created_at", { ascending: false }).limit(10),
-    // Pending vendor approvals
-    supabase.from("profiles").select("id, full_name, role, created_at, avatar_url").eq("role", "vendor").eq("status", "pending").limit(5),
+
     // Pending rider approvals
     supabase.from("profiles").select("id, full_name, role, created_at, avatar_url").eq("role", "rider").eq("status", "pending").limit(5),
     // Recent transactions
@@ -90,7 +89,7 @@ export async function GET() {
     metrics: {
       totalUsers: usersResult.count || 0,
       totalStudents: studentsResult.count || 0,
-      totalVendors: vendorsResult.count || 0,
+      totalProducts: productsResult.count || 0,
       totalRiders: ridersResult.count || 0,
       pendingApprovals: pendingResult.count || 0,
       totalOrders: ordersResult.count || 0,
@@ -102,7 +101,6 @@ export async function GET() {
     },
     recentUsers: recentUsersResult.data || [],
     pendingApprovals: [
-      ...(pendingVendorsResult.data || []),
       ...(pendingRidersResult.data || []),
     ],
     recentTransactions: recentTransactionsResult.data || [],

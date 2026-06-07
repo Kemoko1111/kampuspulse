@@ -1,6 +1,6 @@
-// CampusPulse – Full Type System
+// KampusPulse – Full Type System
 
-export type UserRole = "student" | "vendor" | "rider" | "admin";
+export type UserRole = "student" | "rider" | "admin";
 
 export type UserStatus = "active" | "suspended" | "pending" | "banned";
 
@@ -55,7 +55,6 @@ export interface Category {
 export interface Product {
   id: string;
   seller_id: string;
-  store_id?: string;
   category_id: string;
   title: string;
   description: string;
@@ -77,23 +76,7 @@ export interface Product {
   category?: Category;
 }
 
-export interface Store {
-  id: string;
-  owner_id: string;
-  name: string;
-  slug: string;
-  description?: string;
-  logo_url?: string;
-  banner_url?: string;
-  location?: string;
-  phone?: string;
-  email?: string;
-  is_verified: boolean;
-  is_active: boolean;
-  rating: number;
-  total_sales: number;
-  created_at: string;
-}
+
 
 export type OrderStatus =
   | "pending"
@@ -295,7 +278,7 @@ export interface Message {
 
 // ── REVIEWS ───────────────────────────────────────────────────────────────────
 
-export type ReviewType = "product" | "vendor" | "task_worker" | "rider" | "delivery";
+export type ReviewType = "product" | "task_worker" | "rider" | "delivery";
 
 export interface Review {
   id: string;
@@ -376,7 +359,6 @@ export interface AdminLog {
 export interface AnalyticsData {
   total_users: number;
   total_students: number;
-  total_vendors: number;
   total_riders: number;
   total_orders: number;
   total_tasks: number;

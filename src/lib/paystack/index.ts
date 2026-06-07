@@ -1,5 +1,5 @@
 /**
- * CampusPulse – Paystack Ghana Integration
+ * KampusPulse – Paystack Ghana Integration
  * Supports: MTN Mobile Money, Telecel Cash, AirtelTigo Money
  */
 

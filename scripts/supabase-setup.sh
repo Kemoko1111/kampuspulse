@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 ENV_FILE="$ROOT/.env.local"
 
 echo "============================================"
-echo " CampusPulse — Supabase Setup Helper"
+echo " KampusPulse — Supabase Setup Helper"
 echo "============================================"
 echo ""
 
@@ -17,7 +17,7 @@ fi
 if grep -q "placeholder" "$ENV_FILE" 2>/dev/null; then
   echo "STEP A — Create a Supabase project"
   echo "  1. Go to https://supabase.com/dashboard"
-  echo "  2. New Project → name: campuspulse → choose region → set DB password"
+  echo "  2. New Project → name: kampuspulse → choose region → set DB password"
   echo "  3. Wait for project to finish provisioning (~2 min)"
   echo ""
   echo "STEP B — Copy API keys into .env.local"

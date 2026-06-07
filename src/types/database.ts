@@ -32,7 +32,7 @@ export interface Database {
       refunds: { Row: TableRow<Refund>; Insert: TableInsert<Refund>; Update: TableUpdate<Refund> };
       reviews: { Row: TableRow<Review>; Insert: TableInsert<Review>; Update: TableUpdate<Review> };
       categories: { Row: TableRow<Category>; Insert: TableInsert<Category>; Update: TableUpdate<Category> };
-      stores: { Row: TableRow<Store>; Insert: TableInsert<Store>; Update: TableUpdate<Store> };
+
       rider_profiles: { Row: TableRow<RiderProfile>; Insert: TableInsert<RiderProfile>; Update: TableUpdate<RiderProfile> };
       fcm_tokens: { Row: TableRow<FcmToken>; Insert: TableInsert<FcmToken>; Update: TableUpdate<FcmToken> };
       admin_logs: { Row: TableRow<AdminLog>; Insert: TableInsert<AdminLog>; Update: TableUpdate<AdminLog> };
@@ -63,7 +63,7 @@ interface Profile {
   department: string | null;
   year_of_study: number | null;
   student_id: string | null;
-  role: "student" | "vendor" | "rider" | "admin";
+  role: "student" | "rider" | "admin";
   status: "active" | "suspended" | "pending" | "banned";
   is_verified: boolean;
   rating: number;
@@ -76,7 +76,7 @@ interface Profile {
 interface Product {
   id: string;
   seller_id: string;
-  store_id: string | null;
+
   category_id: string | null;
   title: string;
   description: string | null;
@@ -288,24 +288,7 @@ interface Category {
   is_active: boolean;
 }
 
-interface Store {
-  id: string;
-  owner_id: string;
-  name: string;
-  slug: string;
-  description: string | null;
-  logo_url: string | null;
-  banner_url: string | null;
-  location: string | null;
-  phone: string | null;
-  email: string | null;
-  is_verified: boolean;
-  is_active: boolean;
-  rating: number;
-  total_sales: number;
-  deleted_at: string | null;
-  created_at: string;
-}
+
 
 interface RiderProfile {
   id: string;

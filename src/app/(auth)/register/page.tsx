@@ -13,7 +13,7 @@ import { signInWithGoogle } from "@/lib/auth-oauth";
 import { useAuth } from "@/contexts/auth-context";
 import { useRouter } from "next/navigation";
 
-type Role = "student" | "vendor" | "rider";
+type Role = "student" | "rider";
 
 const roles = [
   {
@@ -24,15 +24,6 @@ const roles = [
     color: "blue",
     border: "border-blue-500/40",
     bg: "bg-blue-500/10",
-  },
-  {
-    id: "vendor" as Role,
-    icon: ShoppingBag,
-    title: "Vendor",
-    desc: "Run your campus store & sell products",
-    color: "emerald",
-    border: "border-emerald-500/40",
-    bg: "bg-emerald-500/10",
   },
   {
     id: "rider" as Role,
@@ -114,7 +105,7 @@ export default function RegisterPage() {
       department: form.department,
       hall_of_residence: form.hallOfResidence,
     });
-    document.cookie = `campuspulse_reg_data=${encodeURIComponent(regData)}; path=/; max-age=3600; SameSite=Lax`;
+    document.cookie = `kampuspulse_reg_data=${encodeURIComponent(regData)}; path=/; max-age=3600; SameSite=Lax`;
 
     const supabase = createClient();
     const { error: oauthError } = await signInWithGoogle(supabase, "/home");
@@ -141,10 +132,10 @@ export default function RegisterPage() {
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-blue-400 flex items-center justify-center glow-blue">
               <Zap className="w-5 h-5 text-white" />
             </div>
-            <span className="font-display font-black text-2xl gradient-text">CampusPulse</span>
+            <span className="font-display font-black text-2xl gradient-text">KampusPulse</span>
           </Link>
           <h1 className="font-display font-bold text-3xl text-foreground mb-1">Create your account</h1>
-          <p className="text-muted-foreground text-sm">Join 12,000+ UCC students on CampusPulse</p>
+          <p className="text-muted-foreground text-sm">Join 12,000+ UCC students on KampusPulse</p>
         </motion.div>
 
         {/* Progress */}
@@ -183,7 +174,7 @@ export default function RegisterPage() {
                     className={`w-full flex items-center gap-4 p-4 rounded-2xl border transition-all duration-200 text-left
                       ${role === id ? `${border} ${bg}` : "border-white/10 hover:border-white/20"}`}>
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${role === id ? bg : "bg-white/5"} border ${role === id ? border : "border-white/10"}`}>
-                      <Icon className="w-5 h-5" style={{ color: id === "student" ? "#60a5fa" : id === "vendor" ? "#34d399" : "#a78bfa" }} />
+                      <Icon className="w-5 h-5" style={{ color: id === "student" ? "#60a5fa" : "#a78bfa" }} />
                     </div>
                     <div className="flex-1">
                       <div className="font-semibold text-sm text-foreground">{title}</div>
@@ -340,7 +331,7 @@ export default function RegisterPage() {
               </div>
               <h2 className="font-display font-black text-2xl mb-2">Account Created! 🎉</h2>
               <p className="text-muted-foreground text-sm mb-2">
-                Welcome to CampusPulse, <span className="text-foreground font-semibold">{form.fullName || "friend"}</span>!
+                Welcome to KampusPulse, <span className="text-foreground font-semibold">{form.fullName || "friend"}</span>!
               </p>
               {/* Email confirmation notice */}
               <div className="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-4 mb-6 text-left">

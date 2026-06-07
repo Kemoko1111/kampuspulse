@@ -43,7 +43,7 @@ interface SignUpParams {
   password: string;
   fullName: string;
   phone: string;
-  role: "student" | "vendor" | "rider";
+  role: "student" | "rider";
   studentId?: string;
   department?: string;
   hallOfResidence?: string;

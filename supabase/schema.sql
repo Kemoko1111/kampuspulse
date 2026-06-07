@@ -1,5 +1,5 @@
 -- ============================================================
--- CampusPulse – Complete PostgreSQL / Supabase Schema
+-- KampusPulse – Complete PostgreSQL / Supabase Schema
 -- ============================================================
 
 -- Enable UUID extension
@@ -22,7 +22,7 @@ CREATE TABLE public.profiles (
   department    TEXT,
   year_of_study INT CHECK (year_of_study BETWEEN 1 AND 6),
   student_id    TEXT,
-  role          TEXT NOT NULL DEFAULT 'student' CHECK (role IN ('student','vendor','rider','admin')),
+  role          TEXT NOT NULL DEFAULT 'student' CHECK (role IN ('student','rider','admin')),
   status        TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','suspended','pending','banned')),
   is_verified   BOOLEAN DEFAULT FALSE,
   rating        NUMERIC(3,2) DEFAULT 0.0,
@@ -31,27 +31,7 @@ CREATE TABLE public.profiles (
   updated_at    TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ============================================================
--- STORES (Vendor)
--- ============================================================
 
-CREATE TABLE public.stores (
-  id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  owner_id      UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
-  name          TEXT NOT NULL,
-  slug          TEXT NOT NULL UNIQUE,
-  description   TEXT,
-  logo_url      TEXT,
-  banner_url    TEXT,
-  location      TEXT,
-  phone         TEXT,
-  email         TEXT,
-  is_verified   BOOLEAN DEFAULT FALSE,
-  is_active     BOOLEAN DEFAULT TRUE,
-  rating        NUMERIC(3,2) DEFAULT 0.0,
-  total_sales   INT DEFAULT 0,
-  created_at    TIMESTAMPTZ DEFAULT NOW()
-);
 
 -- ============================================================
 -- CATEGORIES
@@ -88,7 +68,6 @@ INSERT INTO public.categories (name, slug, sort_order) VALUES
 CREATE TABLE public.products (
   id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   seller_id       UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
-  store_id        UUID REFERENCES public.stores(id) ON DELETE SET NULL,
   category_id     UUID REFERENCES public.categories(id),
   title           TEXT NOT NULL,
   description     TEXT,
@@ -274,7 +253,7 @@ CREATE TABLE public.reviews (
   id                    UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   reviewer_id           UUID REFERENCES public.profiles(id) NOT NULL,
   reviewed_id           UUID REFERENCES public.profiles(id) NOT NULL,
-  type                  TEXT NOT NULL CHECK (type IN ('product','vendor','task_worker','rider','delivery')),
+  type                  TEXT NOT NULL CHECK (type IN ('product','task_worker','rider','delivery')),
   reference_id          UUID NOT NULL,
   rating                INT NOT NULL CHECK (rating BETWEEN 1 AND 5),
   comment               TEXT,
@@ -362,12 +341,17 @@ CREATE POLICY "Public profiles are viewable by everyone"
 CREATE POLICY "Users can update own profile"
   ON public.profiles FOR UPDATE USING (auth.uid() = user_id);
 
--- Products: public read, seller can CRUD
+-- Products: public read, admin can CRUD
 CREATE POLICY "Products are viewable by everyone"
   ON public.products FOR SELECT USING (status = 'active');
 
-CREATE POLICY "Sellers can manage their products"
-  ON public.products FOR ALL USING (auth.uid() = seller_id);
+CREATE POLICY "Admins can manage products"
+  ON public.products FOR ALL USING (
+    EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE profiles.id = auth.uid() AND profiles.role = 'admin'
+    )
+  );
 
 -- Orders: buyer and seller can view their own orders
 CREATE POLICY "Users can view their orders"

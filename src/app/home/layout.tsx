@@ -1,14 +1,5 @@
-import { Sidebar, MobileNav, TopBar } from "@/components/layout/navigation";
+import { DashboardShell } from "@/components/layout/dashboard-shell";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="min-h-screen bg-background">
-      <Sidebar />
-      <TopBar />
-      <main className="lg:pl-64 pb-20 lg:pb-0 min-h-screen">
-        {children}
-      </main>
-      <MobileNav />
-    </div>
-  );
+  return <DashboardShell>{children}</DashboardShell>;
 }

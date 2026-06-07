@@ -1,6 +1,7 @@
 import { Sidebar, MobileNav, TopBar } from "@/components/layout/navigation";
 
-export default function Layout({ children }: { children: React.ReactNode }) {
+/** Single app shell — use only in route layouts, never inside page components. */
+export function DashboardShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-background">
       <Sidebar />

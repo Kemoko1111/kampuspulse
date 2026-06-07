@@ -38,7 +38,7 @@ export default function ResetPasswordPage() {
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-blue-400 flex items-center justify-center">
               <Zap className="w-5 h-5 text-white" />
             </div>
-            <span className="font-display font-black text-2xl gradient-text">CampusPulse</span>
+            <span className="font-display font-black text-2xl gradient-text">KampusPulse</span>
           </Link>
           <h1 className="font-display font-bold text-3xl text-foreground mb-2">Reset Password</h1>
           <p className="text-muted-foreground">Enter your email to receive a reset link</p>

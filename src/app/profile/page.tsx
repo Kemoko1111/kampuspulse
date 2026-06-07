@@ -125,7 +125,7 @@ export default function ProfilePage() {
             <div className="absolute inset-0 bg-gradient-to-r from-emerald-600/10 to-blue-600/10" />
             <div className="relative flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground mb-1">CampusPulse Wallet</p>
+                <p className="text-sm text-muted-foreground mb-1">KampusPulse Wallet</p>
                 <div className="font-display font-black text-4xl text-foreground">{formatCurrency(walletBalance)}</div>
                 <p className="text-xs text-muted-foreground mt-1">Available balance</p>
               </div>

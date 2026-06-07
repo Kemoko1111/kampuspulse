@@ -9,7 +9,6 @@ import {
   CreditCard, Lock, ChevronRight, Smartphone,
   Loader2, Package,
 } from "lucide-react";
-import { Sidebar, MobileNav, TopBar } from "@/components/layout/navigation";
 import { useCart } from "@/hooks/useCart";
 import { apiFetch } from "@/lib/api-client";
 
@@ -104,25 +103,16 @@ export default function CheckoutPage() {
 
   if (cartItems.length === 0) {
     return (
-      <div className="min-h-screen bg-background">
-        <Sidebar />
-        <TopBar title="Checkout" />
-        <main className="lg:pl-64 pb-20 lg:pb-0 min-h-screen flex flex-col items-center justify-center px-4">
-          <Package className="w-12 h-12 text-muted-foreground/30 mb-3" />
-          <p className="text-muted-foreground mb-4">Your cart is empty</p>
-          <Link href="/edwom/cart" className="btn-primary px-6 py-2.5 text-sm">Back to Cart</Link>
-        </main>
-        <MobileNav />
+      <div className="flex flex-col items-center justify-center min-h-[50vh] px-4">
+        <Package className="w-12 h-12 text-muted-foreground/30 mb-3" />
+        <p className="text-muted-foreground mb-4">Your cart is empty</p>
+        <Link href="/edwom/cart" className="btn-primary px-6 py-2.5 text-sm">Back to Cart</Link>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Sidebar />
-      <TopBar title="Checkout" />
-      <main className="lg:pl-64 pb-20 lg:pb-0 min-h-screen">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6">
           <Link href="/edwom/cart" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6">
             <ArrowLeft className="w-4 h-4" /> Back to Cart
           </Link>
@@ -311,9 +301,6 @@ export default function CheckoutPage() {
               </div>
             </motion.div>
           </div>
-        </div>
-      </main>
-      <MobileNav />
     </div>
   );
 }

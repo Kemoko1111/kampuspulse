@@ -24,29 +24,29 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: {
-    default: "CampusPulse – University of Cape Coast Digital Ecosystem",
-    template: "%s | CampusPulse",
+    default: "KampusPulse – University of Cape Coast Digital Ecosystem",
+    template: "%s | KampusPulse",
   },
   description:
-    "CampusPulse is the premier digital ecosystem for UCC students — shop on EDWOM, earn with Y3 ADWUMA, and move with EZZYRIDE.",
+    "KampusPulse is the premier digital ecosystem for UCC students — shop on EDWOM, earn with Y3 ADWUMA, and move with EZZYRIDE.",
   keywords: [
-    "CampusPulse", "UCC", "University of Cape Coast", "student marketplace",
+    "KampusPulse", "UCC", "University of Cape Coast", "student marketplace",
     "campus delivery", "student tasks", "Ghana", "EDWOM", "EZZYRIDE", "Y3 ADWUMA",
   ],
-  authors: [{ name: "CampusPulse" }],
-  creator: "CampusPulse",
+  authors: [{ name: "KampusPulse" }],
+  creator: "KampusPulse",
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
   openGraph: {
     type: "website",
     locale: "en_GH",
     url: "/",
-    title: "CampusPulse – UCC Digital Ecosystem",
+    title: "KampusPulse – UCC Digital Ecosystem",
     description: "Shop, Earn & Move on UCC's most innovative student platform.",
-    siteName: "CampusPulse",
+    siteName: "KampusPulse",
   },
   twitter: {
     card: "summary_large_image",
-    title: "CampusPulse",
+    title: "KampusPulse",
     description: "UCC's premier digital ecosystem for students.",
   },
 };

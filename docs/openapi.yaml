@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
-  title: CampusPulse API
+  title: KampusPulse API
   version: 1.0.0
-  description: Production API for CampusPulse student platform
+  description: Production API for KampusPulse student platform
 servers:
   - url: /api
 paths:

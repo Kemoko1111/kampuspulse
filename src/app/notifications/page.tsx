@@ -3,7 +3,6 @@
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { Bell, Check, Package, Briefcase, Bike, MessageSquare, Tag, Info, Loader2 } from "lucide-react";
-import { Sidebar, MobileNav, TopBar } from "@/components/layout/navigation";
 import { useAuth } from "@/contexts/auth-context";
 import { useRealtimeNotifications } from "@/hooks";
 import { formatRelativeTime } from "@/lib/utils";
@@ -23,11 +22,7 @@ export default function NotificationsPage() {
   const { notifications, unreadCount, loading, markAllRead, markOneRead } = useRealtimeNotifications(user?.id ?? null);
 
   return (
-    <div className="min-h-screen bg-background">
-      <Sidebar />
-      <TopBar title="Notifications" />
-      <main className="lg:pl-64 pb-20 lg:pb-0 min-h-screen">
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 space-y-5">
+    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 space-y-5">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
             <div>
               <h1 className="font-display font-black text-3xl">Notifications</h1>
@@ -83,9 +78,6 @@ export default function NotificationsPage() {
               })}
             </div>
           )}
-        </div>
-      </main>
-      <MobileNav />
     </div>
   );
 }

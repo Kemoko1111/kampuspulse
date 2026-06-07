@@ -16,7 +16,7 @@ import { apiFetch } from "@/lib/api-client";
 const sidebarLinks = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
   { id: "users", label: "Users", icon: Users },
-  { id: "vendors", label: "Vendors", icon: ShoppingBag },
+  { id: "marketplace", label: "Marketplace", icon: ShoppingBag },
   { id: "riders", label: "Riders", icon: Bike },
   { id: "tasks", label: "Tasks", icon: Briefcase },
   { id: "analytics", label: "Analytics", icon: BarChart3 },
@@ -27,7 +27,7 @@ const sidebarLinks = [
 interface AdminMetrics {
   totalUsers: number;
   totalStudents: number;
-  totalVendors: number;
+  totalProducts: number;
   totalRiders: number;
   pendingApprovals: number;
   totalOrders: number;
@@ -98,7 +98,7 @@ export default function AdminDashboard() {
     { label: "Total Revenue", value: formatCurrency(data.metrics.totalRevenue), sub: `${formatCurrency(data.metrics.todayRevenue)} today`, icon: DollarSign, color: "text-emerald-400", bg: "bg-emerald-500/10" },
     { label: "Total Orders", value: data.metrics.totalOrders.toLocaleString(), sub: `${data.metrics.ordersToday} today`, icon: Package, color: "text-orange-400", bg: "bg-orange-500/10" },
     { label: "Active Tasks", value: data.metrics.totalTasks.toLocaleString(), sub: `${data.metrics.totalRides} rides`, icon: Briefcase, color: "text-purple-400", bg: "bg-purple-500/10" },
-    { label: "Total Riders", value: data.metrics.totalRiders.toLocaleString(), sub: `${data.metrics.totalVendors} vendors`, icon: Bike, color: "text-cyan-400", bg: "bg-cyan-500/10" },
+    { label: "Total Riders", value: data.metrics.totalRiders.toLocaleString(), sub: `${data.metrics.totalRides} rides given`, icon: Bike, color: "text-cyan-400", bg: "bg-cyan-500/10" },
     { label: "Pending Approvals", value: data.metrics.pendingApprovals.toLocaleString(), sub: "awaiting review", icon: Star, color: "text-yellow-400", bg: "bg-yellow-500/10" },
   ] : [];
 
@@ -129,7 +129,7 @@ export default function AdminDashboard() {
           </div>
           <div>
             <div className="font-display font-black text-base text-foreground">Admin Panel</div>
-            <div className="text-[10px] text-muted-foreground">CampusPulse v1.0</div>
+            <div className="text-[10px] text-muted-foreground">KampusPulse v1.0</div>
           </div>
         </div>
         <nav className="flex-1 space-y-1">
@@ -157,7 +157,7 @@ export default function AdminDashboard() {
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
             <div>
               <h1 className="font-display font-black text-3xl">Admin <span className="text-red-400">Dashboard</span></h1>
-              <p className="text-muted-foreground text-sm">CampusPulse – University of Cape Coast</p>
+              <p className="text-muted-foreground text-sm">KampusPulse – University of Cape Coast</p>
             </div>
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1.5 glass border border-green-500/20 rounded-full px-3 py-1.5">
@@ -332,7 +332,7 @@ export default function AdminDashboard() {
             <h2 className="font-display font-bold text-lg mb-4">Quick Moderation</h2>
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {[
-                { label: "Pending Vendors", count: data?.metrics.totalVendors ?? 0, icon: ShoppingBag, color: "text-orange-400", bg: "bg-orange-500/10", border: "border-orange-500/20" },
+                { label: "Total Products", count: data?.metrics.totalProducts ?? 0, icon: ShoppingBag, color: "text-orange-400", bg: "bg-orange-500/10", border: "border-orange-500/20" },
                 { label: "Pending Approvals", count: data?.metrics.pendingApprovals ?? 0, icon: Briefcase, color: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/20" },
                 { label: "Total Tasks", count: data?.metrics.totalTasks ?? 0, icon: Star, color: "text-yellow-400", bg: "bg-yellow-500/10", border: "border-yellow-500/20" },
                 { label: "Total Rides", count: data?.metrics.totalRides ?? 0, icon: AlertCircle, color: "text-purple-400", bg: "bg-purple-500/10", border: "border-purple-500/20" },
