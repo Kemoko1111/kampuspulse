@@ -36,6 +36,9 @@ const adminNav = [
 export function Sidebar() {
   const pathname = usePathname();
   const { profile } = useAuth();
+
+  // Admin routes use their own layout sidebar
+  if (pathname.startsWith('/admin')) return null;
   
   const navItems = profile?.role === "admin" ? adminNav : profile?.role === "rider" ? riderNav : studentNav;
 
@@ -114,6 +117,9 @@ export function Sidebar() {
 export function MobileNav() {
   const pathname = usePathname();
   const { profile } = useAuth();
+
+  // Admin routes use their own layout navigation
+  if (pathname.startsWith('/admin')) return null;
   
   const navItems = profile?.role === "admin" ? adminNav : profile?.role === "rider" ? riderNav : studentNav;
 
@@ -141,8 +147,12 @@ export function MobileNav() {
 }
 
 export function TopBar({ title }: { title?: string }) {
+  const pathname = usePathname();
   const { profile } = useAuth();
   const initials = profile?.full_name?.substring(0, 2).toUpperCase() || "ST";
+
+  // Admin routes use their own layout top bar
+  if (pathname.startsWith('/admin')) return null;
 
   return (
     <header className="lg:hidden sticky top-0 z-40 glass border-b border-white/5 px-4 py-3">

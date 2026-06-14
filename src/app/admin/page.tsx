@@ -1,29 +1,18 @@
 "use client";
 
+import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { useState, useEffect, useCallback } from "react";
 import {
-  LayoutDashboard, Users, ShoppingBag, Bike,
-  Briefcase, AlertCircle, CheckCircle,
-  XCircle, Shield, BarChart3, DollarSign,
-  Package, Star, Settings, Ban, Check,
-  ArrowUp, Activity, Loader2,
+  Package, Users, ShoppingBag, Bike,
+  DollarSign, Clock, Loader2, RefreshCcw,
+  ArrowRight, TrendingUp,
 } from "lucide-react";
-import { cn, formatRelativeTime, formatCurrency, getInitials } from "@/lib/utils";
-import { apiFetch } from "@/lib/api-client";
-
-const sidebarLinks = [
-  { id: "overview", label: "Overview", icon: LayoutDashboard },
-  { id: "users", label: "Users", icon: Users },
-  { id: "marketplace", label: "Marketplace", icon: ShoppingBag },
-  { id: "riders", label: "Riders", icon: Bike },
-  { id: "orders", label: "Orders", icon: Package },
-  { id: "tasks", label: "Tasks", icon: Briefcase },
-  { id: "analytics", label: "Analytics", icon: BarChart3 },
-  { id: "payments", label: "Payments", icon: DollarSign },
-  { id: "settings", label: "Settings", icon: Settings },
-];
+import { formatCurrency, formatRelativeTime } from "@/lib/utils";
+import { StatCard } from "@/components/admin/stat-card";
+import { ChartCard } from "@/components/admin/chart-card";
+import { StatusBadge } from "@/components/admin/status-badge";
+import { PageHeader } from "@/components/admin/page-header";
 
 interface AdminMetrics {
   totalUsers: number;
@@ -38,16 +27,6 @@ interface AdminMetrics {
   totalTasks: number;
   totalRides: number;
 }
-
-interface AdminUser {
-  id: string;
-  full_name: string;
-  role: string;
-  status: string;
-  created_at: string;
-  avatar_url?: string;
-}
-
 
 interface AdminOrder {
   id: string;
@@ -64,7 +43,6 @@ interface AdminProduct {
   price: number;
   stock_quantity: number;
   status: string;
-  created_at: string;
 }
 
 interface AdminTransaction {
@@ -76,402 +54,203 @@ interface AdminTransaction {
   created_at: string;
 }
 
-interface AdminData {
+interface DashboardData {
   metrics: AdminMetrics;
-  recentUsers: AdminUser[];
-  pendingApprovals: AdminUser[];
-  recentTransactions: AdminTransaction[];
   recentOrders: AdminOrder[];
   recentProducts: AdminProduct[];
+  recentTransactions: AdminTransaction[];
   revenueByDay: Record<string, number>;
 }
 
 export default function AdminDashboard() {
-  const [activeSection, setActiveSection] = useState("overview");
-  const [data, setData] = useState<AdminData | null>(null);
+  const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  const fetchMetrics = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
-    const res = await fetch("/api/admin/metrics");
-    if (res.ok) {
-      setData(await res.json());
+    try {
+      const res = await fetch("/api/admin/metrics");
+      if (res.ok) setData(await res.json());
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
-  useEffect(() => {
-    fetchMetrics();
-  }, [fetchMetrics]);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
-  const updateUser = async (userId: string, body: { status?: string; role?: string }) => {
-    setActionLoading(userId);
-    const res = await apiFetch(`/api/admin/users/${userId}`, {
-      method: "PATCH",
-      body: JSON.stringify(body),
-    });
-    if (res.ok) await fetchMetrics();
-    setActionLoading(null);
-  };
+  // Transform revenueByDay into chart data (last 7 days)
+  const chartData = (() => {
+    if (!data?.revenueByDay) return [];
+    const entries = Object.entries(data.revenueByDay).sort(([a], [b]) => a.localeCompare(b));
+    const last7 = entries.slice(-7);
+    return last7.map(([date, value]) => ({
+      label: new Date(date).toLocaleDateString("en-GB", { day: "numeric", month: "short" }),
+      value,
+    }));
+  })();
 
-  const metricsCards = data ? [
-    { label: "Total Users", value: data.metrics.totalUsers.toLocaleString(), sub: `${data.metrics.totalStudents} students`, icon: Users, color: "text-blue-400", bg: "bg-blue-500/10" },
-    { label: "Total Revenue", value: formatCurrency(data.metrics.totalRevenue), sub: `${formatCurrency(data.metrics.todayRevenue)} today`, icon: DollarSign, color: "text-emerald-400", bg: "bg-emerald-500/10" },
-    { label: "Total Orders", value: data.metrics.totalOrders.toLocaleString(), sub: `${data.metrics.ordersToday} today`, icon: Package, color: "text-orange-400", bg: "bg-orange-500/10" },
-    { label: "Active Tasks", value: data.metrics.totalTasks.toLocaleString(), sub: `${data.metrics.totalRides} rides`, icon: Briefcase, color: "text-purple-400", bg: "bg-purple-500/10" },
-    { label: "Total Riders", value: data.metrics.totalRiders.toLocaleString(), sub: `${data.metrics.totalRides} rides given`, icon: Bike, color: "text-cyan-400", bg: "bg-cyan-500/10" },
-    { label: "Pending Approvals", value: data.metrics.pendingApprovals.toLocaleString(), sub: "awaiting review", icon: Star, color: "text-yellow-400", bg: "bg-yellow-500/10" },
-  ] : [];
-
-  const revenueDays = data
-    ? Object.entries(data.revenueByDay).sort(([a], [b]) => a.localeCompare(b))
-    : [];
-  const maxRevenue = revenueDays.length
-    ? Math.max(...revenueDays.map(([, v]) => v))
-    : 1;
-
-  const roleLabel = (role: string) =>
-    role.charAt(0).toUpperCase() + role.slice(1);
-
-  if (loading && !data) {
+  if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-red-400" />
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
+          <p className="text-sm text-muted-foreground">Loading dashboard…</p>
+        </div>
       </div>
     );
   }
 
+  const m = data?.metrics;
+
   return (
-    <div className="min-h-screen flex">
-      <aside className="hidden lg:flex flex-col fixed left-0 top-0 bottom-0 w-60 glass border-r border-white/5 z-50 p-4">
-        <div className="flex items-center gap-2.5 px-2 py-3 mb-6">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-red-600 to-orange-400 flex items-center justify-center">
-            <Shield className="w-4 h-4 text-white" />
+    <div className="space-y-8">
+      <PageHeader
+        title="Dashboard"
+        subtitle="Overview of your platform activity"
+        actions={
+          <button onClick={fetchData} className="btn-ghost flex items-center gap-2 text-sm">
+            <RefreshCcw className="w-4 h-4" /> Refresh
+          </button>
+        }
+      />
+
+      {/* ── Stat Cards ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard title="Today's Orders" value={m?.ordersToday ?? 0} icon={Package} color="blue" index={0} />
+        <StatCard title="Pending Orders" value={m?.pendingApprovals ?? 0} icon={Clock} color="yellow" index={1} />
+        <StatCard title="Total Orders" value={m?.totalOrders ?? 0} icon={Package} color="green" index={2} />
+        <StatCard title="Active Riders" value={m?.totalRiders ?? 0} icon={Bike} color="purple" index={3} />
+        <StatCard title="Today's Revenue" value={formatCurrency(m?.todayRevenue ?? 0)} icon={DollarSign} color="green" index={4} />
+        <StatCard title="Total Revenue" value={formatCurrency(m?.totalRevenue ?? 0)} icon={DollarSign} color="blue" index={5} />
+        <StatCard title="Students" value={m?.totalStudents ?? 0} icon={Users} color="orange" index={6} />
+        <StatCard title="Products" value={m?.totalProducts ?? 0} icon={ShoppingBag} color="red" index={7} />
+      </div>
+
+      {/* ── Revenue Chart ── */}
+      {chartData.length > 0 && (
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+          <ChartCard title="Revenue (Last 7 Days)" data={chartData} color="#3b82f6" />
+        </motion.div>
+      )}
+
+      {/* ── Recent Activity ── */}
+      <div className="grid lg:grid-cols-2 gap-6">
+        {/* Recent Orders */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="glass-card overflow-hidden">
+          <div className="p-5 border-b border-white/5">
+            <h2 className="font-display font-bold text-lg flex items-center gap-2">
+              <Package className="w-5 h-5 text-blue-400" /> Recent Orders
+            </h2>
           </div>
-          <div>
-            <div className="font-display font-black text-base text-foreground">Admin Panel</div>
-            <div className="text-[10px] text-muted-foreground">KampusPulse v1.0</div>
-          </div>
-        </div>
-        <nav className="flex-1 space-y-1">
-          {sidebarLinks.map(({ id, label, icon: Icon }) => (
-            <button key={id} id={`admin-nav-${id}`} onClick={() => setActiveSection(id)}
-              className={cn(
-                "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-left",
-                activeSection === id
-                  ? "bg-red-500/10 text-red-400 border border-red-500/20"
-                  : "text-muted-foreground hover:text-foreground hover:bg-white/5"
-              )}>
-              <Icon className="w-4 h-4 flex-shrink-0" /> {label}
-            </button>
-          ))}
-        </nav>
-        <div className="border-t border-white/5 pt-4 mt-4">
-          <Link href="/home" className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all">
-            <LayoutDashboard className="w-4 h-4" /> Back to App
-          </Link>
-        </div>
-      </aside>
-
-      <main className="flex-1 lg:pl-60">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
-            <div>
-              <h1 className="font-display font-black text-3xl">Admin <span className="text-red-400">Dashboard</span></h1>
-              <p className="text-muted-foreground text-sm">KampusPulse – University of Cape Coast</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5 glass border border-green-500/20 rounded-full px-3 py-1.5">
-                <Activity className="w-3.5 h-3.5 text-green-400" />
-                <span className="text-xs font-medium text-green-400">All Systems Normal</span>
-              </div>
-            </div>
-          </motion.div>
-
-          
-          {activeSection === "overview" && (
-            <>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-
-            {metricsCards.map(({ label, value, sub, icon: Icon, color, bg }, i) => (
-              <motion.div key={label}
-                initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-                className="glass-card p-4">
-                <div className={`w-9 h-9 rounded-xl ${bg} flex items-center justify-center mb-3`}>
-                  <Icon className={`w-4 h-4 ${color}`} />
-                </div>
-                <div className={`font-display font-black text-xl ${color} mb-0.5`}>{value}</div>
-                <div className="text-[10px] text-muted-foreground mb-1">{label}</div>
-                <div className="flex items-center gap-0.5 text-[10px] font-medium text-green-400">
-                  <ArrowUp className="w-3 h-3" />
-                  {sub}
-                </div>
-              </motion.div>
-            ))}
-          </div>
-
-          <div className="grid lg:grid-cols-3 gap-6">
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="lg:col-span-1">
-              <div className="glass-card p-5 h-full">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="font-display font-bold text-base">Pending Approvals</h2>
-                  <span className="w-6 h-6 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center">
-                    {data?.pendingApprovals.length ?? 0}
-                  </span>
-                </div>
-                <div className="space-y-3">
-                  {(data?.pendingApprovals ?? []).length === 0 ? (
-                    <p className="text-xs text-muted-foreground text-center py-4">No pending approvals</p>
-                  ) : (
-                    data?.pendingApprovals.map(({ id, full_name, role, created_at }) => (
-                      <div key={id} className="p-3 glass border border-white/10 rounded-xl">
-                        <div className="flex items-start justify-between gap-2 mb-2">
-                          <div>
-                            <div className="font-semibold text-sm">{full_name}</div>
-                            <div className="text-xs text-muted-foreground">{roleLabel(role)} · {formatRelativeTime(created_at)}</div>
-                          </div>
-                          <span className="text-[10px] bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 rounded-full px-2 py-0.5 flex-shrink-0">Pending</span>
-                        </div>
-                        <div className="flex gap-2">
-                          <button id={`approve-${id}`}
-                            disabled={actionLoading === id}
-                            onClick={() => updateUser(id, { status: "active" })}
-                            className="flex-1 flex items-center justify-center gap-1 bg-green-500/10 text-green-400 border border-green-500/20 rounded-lg py-1.5 text-xs font-medium hover:bg-green-500/20 transition-all disabled:opacity-50">
-                            <Check className="w-3.5 h-3.5" /> Approve
-                          </button>
-                          <button id={`reject-${id}`}
-                            disabled={actionLoading === id}
-                            onClick={() => updateUser(id, { status: "banned" })}
-                            className="flex-1 flex items-center justify-center gap-1 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg py-1.5 text-xs font-medium hover:bg-red-500/20 transition-all disabled:opacity-50">
-                            <XCircle className="w-3.5 h-3.5" /> Reject
-                          </button>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            </motion.div>
-
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
-              <div className="glass-card p-5 h-full">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="font-display font-bold text-base">Recent Users</h2>
-                  <button className="text-xs text-blue-400">View all</button>
-                </div>
-                <div className="space-y-3">
-                  {(data?.recentUsers ?? []).map(({ id, full_name, role, created_at, status }) => (
-                    <div key={id} className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-600 to-blue-400 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                        {getInitials(full_name)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-sm truncate">{full_name}</div>
-                        <div className="text-xs text-muted-foreground">{roleLabel(role)} · {formatRelativeTime(created_at)}</div>
-                      </div>
-                      <div className="flex items-center gap-1.5 flex-shrink-0">
-                        <span className={cn(
-                          "text-[10px] font-semibold px-2 py-0.5 rounded-full border",
-                          status === "active" ? "bg-green-500/10 text-green-400 border-green-500/20" :
-                          status === "pending" ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/20" :
-                          "bg-red-500/10 text-red-400 border-red-500/20"
-                        )}>{status}</span>
-                        {status === "active" && (
-                          <button
-                            disabled={actionLoading === id}
-                            onClick={() => updateUser(id, { status: "suspended" })}
-                            className="w-7 h-7 rounded-lg glass border border-white/10 flex items-center justify-center hover:bg-red-500/10 transition-all disabled:opacity-50"
-                            title="Suspend user">
-                            <Ban className="w-3 h-3 text-red-400" />
-                          </button>
-                        )}
-                        {status === "suspended" && (
-                          <button
-                            disabled={actionLoading === id}
-                            onClick={() => updateUser(id, { status: "active" })}
-                            className="w-7 h-7 rounded-lg glass border border-white/10 flex items-center justify-center hover:bg-green-500/10 transition-all disabled:opacity-50"
-                            title="Reactivate user">
-                            <CheckCircle className="w-3 h-3 text-green-400" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
-
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-              <div className="glass-card p-5 h-full">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="font-display font-bold text-base">Recent Transactions</h2>
-                  <button className="text-xs text-blue-400">View all</button>
-                </div>
-                <div className="space-y-3">
-                  {(data?.recentTransactions ?? []).map(({ id, amount, type, status, created_at }) => (
-                    <div key={id} className="flex items-center justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-xs text-foreground font-mono">{id.slice(0, 8).toUpperCase()}</div>
-                        <div className="text-[10px] text-muted-foreground">{type} · {formatRelativeTime(created_at)}</div>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <div className="font-bold text-sm text-foreground">{formatCurrency(amount)}</div>
-                        <span className={cn(
-                          "text-[10px] font-medium",
-                          status === "success" ? "text-green-400" : "text-red-400"
-                        )}>{status}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
-          </div>
-
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="glass-card p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="font-display font-bold text-lg">Revenue (This Month)</h2>
-            </div>
-            {revenueDays.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">No revenue data this month</p>
+          <div className="divide-y divide-white/5">
+            {(data?.recentOrders ?? []).length === 0 ? (
+              <div className="p-8 text-center text-muted-foreground text-sm">No orders yet</div>
             ) : (
-              <>
-                <div className="flex items-end gap-2 h-32">
-                  {revenueDays.map(([day, amount]) => (
-                    <div key={day}
-                      className="flex-1 bg-gradient-to-t from-blue-600 to-blue-400 rounded-t-sm opacity-80 hover:opacity-100 transition-opacity"
-                      style={{ height: `${Math.max((amount / maxRevenue) * 100, 4)}%` }}
-                      title={`${day}: ${formatCurrency(amount)}`} />
-                  ))}
-                </div>
-                <div className="flex justify-between text-[10px] text-muted-foreground mt-2">
-                  <span>{revenueDays[0]?.[0]}</span>
-                  <span>{revenueDays[Math.floor(revenueDays.length / 2)]?.[0]}</span>
-                  <span>{revenueDays[revenueDays.length - 1]?.[0]}</span>
-                </div>
-              </>
-            )}
-          </motion.div>
-
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
-            <h2 className="font-display font-bold text-lg mb-4">Quick Moderation</h2>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {[
-                { label: "Total Products", count: data?.metrics.totalProducts ?? 0, icon: ShoppingBag, color: "text-orange-400", bg: "bg-orange-500/10", border: "border-orange-500/20" },
-                { label: "Pending Approvals", count: data?.metrics.pendingApprovals ?? 0, icon: Briefcase, color: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/20" },
-                { label: "Total Tasks", count: data?.metrics.totalTasks ?? 0, icon: Star, color: "text-yellow-400", bg: "bg-yellow-500/10", border: "border-yellow-500/20" },
-                { label: "Total Rides", count: data?.metrics.totalRides ?? 0, icon: AlertCircle, color: "text-purple-400", bg: "bg-purple-500/10", border: "border-purple-500/20" },
-              ].map(({ label, count, icon: Icon, color, bg, border }) => (
-                <div key={label} className={`glass-card p-4 border ${border} hover:scale-105 transition-all cursor-pointer`}>
-                  <div className={`w-10 h-10 rounded-xl ${bg} flex items-center justify-center mb-3`}>
-                    <Icon className={`w-5 h-5 ${color}`} />
+              (data?.recentOrders ?? []).slice(0, 6).map((order) => (
+                <div key={order.id} className="px-5 py-3 flex items-center justify-between hover:bg-white/5 transition-colors">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-mono text-muted-foreground">#{order.id.slice(0, 8)}</span>
+                      <StatusBadge status={order.status} variant="order" />
+                    </div>
+                    <p className="text-sm font-medium mt-0.5 truncate">
+                      {(order.buyer as any)?.full_name || "Unknown Customer"}
+                    </p>
                   </div>
-                  <div className={`font-display font-black text-2xl ${color}`}>{count}</div>
-                  <div className="text-xs text-muted-foreground">{label}</div>
+                  <div className="text-right flex-shrink-0 ml-4">
+                    <div className="text-sm font-display font-bold text-blue-400">
+                      {formatCurrency(order.total_amount)}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {formatRelativeTime(order.created_at)}
+                    </div>
+                  </div>
                 </div>
-              ))}
-            </div>
-          </motion.div>
-            </>
-          )}
+              ))
+            )}
+          </div>
+          <div className="p-4 border-t border-white/5">
+            <Link href="/admin/orders" className="flex items-center justify-center gap-2 text-sm text-blue-400 hover:text-blue-300 transition-colors font-medium">
+              View all orders <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+        </motion.div>
 
-          {activeSection === "orders" && (
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-6">
-              <h2 className="font-display font-bold text-lg mb-4">Recent Orders</h2>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-white/10 text-muted-foreground">
-                      <th className="pb-3 font-medium">Order ID</th>
-                      <th className="pb-3 font-medium">Buyer</th>
-                      <th className="pb-3 font-medium">Seller</th>
-                      <th className="pb-3 font-medium">Amount</th>
-                      <th className="pb-3 font-medium">Status</th>
-                      <th className="pb-3 font-medium">Date</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5">
-                    {(data?.recentOrders ?? []).map(order => (
-                      <tr key={order.id} className="hover:bg-white/5">
-                        <td className="py-3 font-mono text-xs">{order.id.slice(0, 8)}</td>
-                        <td className="py-3">{order.buyer?.full_name || "Unknown"}</td>
-                        <td className="py-3">{order.seller?.full_name || "Unknown"}</td>
-                        <td className="py-3 font-bold">{formatCurrency(order.total_amount)}</td>
-                        <td className="py-3">
-                          <span className={cn(
-                            "px-2 py-1 rounded-full text-[10px] font-semibold border",
-                            order.status === "delivered" ? "bg-green-500/10 text-green-400 border-green-500/20" :
-                            order.status === "cancelled" ? "bg-red-500/10 text-red-400 border-red-500/20" :
-                            "bg-yellow-500/10 text-yellow-400 border-yellow-500/20"
-                          )}>{order.status}</span>
-                        </td>
-                        <td className="py-3 text-xs text-muted-foreground">{formatRelativeTime(order.created_at)}</td>
-                      </tr>
-                    ))}
-                    {(data?.recentOrders?.length === 0) && (
-                      <tr>
-                        <td colSpan={6} className="py-8 text-center text-muted-foreground">No orders found.</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </motion.div>
-          )}
-
-          {activeSection === "marketplace" && (
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h2 className="font-display font-bold text-lg">Marketplace Inventory</h2>
-                <Link href="/admin/marketplace/new" className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-blue-500 transition-all shadow-[0_0_15px_rgba(37,99,235,0.3)]">
-                  <Package className="w-4 h-4" /> Add Product
-                </Link>
-              </div>
-              <div className="glass-card p-6">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead>
-                      <tr className="border-b border-white/10 text-muted-foreground">
-                        <th className="pb-3 font-medium">Product</th>
-                        <th className="pb-3 font-medium">Price</th>
-                        <th className="pb-3 font-medium">Stock</th>
-                        <th className="pb-3 font-medium">Status</th>
-                        <th className="pb-3 font-medium">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/5">
-                      {(data?.recentProducts ?? []).map(product => (
-                        <tr key={product.id} className="hover:bg-white/5">
-                          <td className="py-3 font-medium">{product.title}</td>
-                          <td className="py-3 font-bold text-green-400">{formatCurrency(product.price)}</td>
-                          <td className="py-3">{product.stock_quantity} units</td>
-                          <td className="py-3">
-                            <span className={cn(
-                              "px-2 py-1 rounded-full text-[10px] font-semibold border",
-                              product.status === "active" ? "bg-green-500/10 text-green-400 border-green-500/20" :
-                              "bg-red-500/10 text-red-400 border-red-500/20"
-                            )}>{product.status}</span>
-                          </td>
-                          <td className="py-3 flex items-center gap-2">
-                            <button className="text-blue-400 text-xs font-medium hover:underline">Edit</button>
-                          </td>
-                        </tr>
-                      ))}
-                      {(data?.recentProducts?.length === 0) && (
-                        <tr>
-                          <td colSpan={5} className="py-8 text-center text-muted-foreground">No products in inventory.</td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
+        {/* Recent Products */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="glass-card overflow-hidden">
+          <div className="p-5 border-b border-white/5">
+            <h2 className="font-display font-bold text-lg flex items-center gap-2">
+              <ShoppingBag className="w-5 h-5 text-orange-400" /> Recent Products
+            </h2>
+          </div>
+          <div className="divide-y divide-white/5">
+            {(data?.recentProducts ?? []).length === 0 ? (
+              <div className="p-8 text-center text-muted-foreground text-sm">No products yet</div>
+            ) : (
+              (data?.recentProducts ?? []).slice(0, 6).map((product) => (
+                <div key={product.id} className="px-5 py-3 flex items-center justify-between hover:bg-white/5 transition-colors">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{product.title}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <StatusBadge status={product.status} />
+                      <span className="text-xs text-muted-foreground">
+                        Stock: {product.stock_quantity}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="text-right flex-shrink-0 ml-4">
+                    <div className="text-sm font-display font-bold text-orange-400">
+                      {formatCurrency(product.price)}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </motion.div>
-          )}
+              ))
+            )}
+          </div>
+          <div className="p-4 border-t border-white/5">
+            <Link href="/admin/shop" className="flex items-center justify-center gap-2 text-sm text-orange-400 hover:text-orange-300 transition-colors font-medium">
+              View all products <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+        </motion.div>
+      </div>
 
-        </div>
-      </main>
+      {/* ── Recent Transactions ── */}
+      {(data?.recentTransactions ?? []).length > 0 && (
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }} className="glass-card overflow-hidden">
+          <div className="p-5 border-b border-white/5">
+            <h2 className="font-display font-bold text-lg flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-green-400" /> Recent Transactions
+            </h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-white/5">
+                  <th className="text-left text-xs font-medium text-muted-foreground px-5 py-3">ID</th>
+                  <th className="text-left text-xs font-medium text-muted-foreground px-5 py-3">Type</th>
+                  <th className="text-left text-xs font-medium text-muted-foreground px-5 py-3">Method</th>
+                  <th className="text-left text-xs font-medium text-muted-foreground px-5 py-3">Status</th>
+                  <th className="text-right text-xs font-medium text-muted-foreground px-5 py-3">Amount</th>
+                  <th className="text-right text-xs font-medium text-muted-foreground px-5 py-3">Date</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {(data?.recentTransactions ?? []).slice(0, 8).map((tx) => (
+                  <tr key={tx.id} className="hover:bg-white/5 transition-colors">
+                    <td className="px-5 py-3 text-xs font-mono text-muted-foreground">#{tx.id.slice(0, 8)}</td>
+                    <td className="px-5 py-3 text-sm capitalize">{tx.type}</td>
+                    <td className="px-5 py-3 text-sm text-muted-foreground capitalize">{tx.payment_method || "—"}</td>
+                    <td className="px-5 py-3"><StatusBadge status={tx.status} variant="payment" /></td>
+                    <td className="px-5 py-3 text-sm font-display font-bold text-right text-green-400">{formatCurrency(tx.amount)}</td>
+                    <td className="px-5 py-3 text-xs text-muted-foreground text-right">{formatRelativeTime(tx.created_at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </motion.div>
+      )}
     </div>
   );
 }

@@ -1,0 +1,205 @@
+import { NextRequest, NextResponse } from "next/server";
+import { handleApiError } from "@/lib/errors/app-error";
+import { requireRole } from "@/lib/middleware/auth";
+import { AppError } from "@/lib/errors/app-error";
+
+/* ─── GET /api/admin/orders/[id] — Fetch single order with full details ─── */
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { supabase } = await requireRole(["admin"]);
+    const { id } = await params;
+
+    const { data, error } = await supabase
+      .from("orders")
+      .select(
+        `
+        id,
+        buyer_id,
+        seller_id,
+        total_amount,
+        delivery_fee,
+        status,
+        payment_method,
+        payment_status,
+        payment_reference,
+        delivery_address,
+        notes,
+        created_at,
+        deleted_at,
+        buyer:profiles!orders_buyer_id_fkey (
+          id,
+          user_id,
+          full_name,
+          phone,
+          avatar_url,
+          hall_of_residence,
+          role,
+          status
+        ),
+        seller:profiles!orders_seller_id_fkey (
+          id,
+          user_id,
+          full_name,
+          phone,
+          avatar_url
+        ),
+        order_items (
+          id,
+          product_id,
+          quantity,
+          unit_price,
+          total_price,
+          product:products (
+            id,
+            title
+          )
+        )
+      `
+      )
+      .eq("id", id)
+      .single();
+
+    if (error || !data) {
+      throw new AppError("Order not found", 404, "NOT_FOUND");
+    }
+
+    return NextResponse.json({ order: data });
+  } catch (error) {
+    return handleApiError(error);
+  }
+}
+
+/* ─── PATCH /api/admin/orders/[id] — Update order (status, assign rider, etc.) ─── */
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { supabase, profile } = await requireRole(["admin"]);
+    const { id } = await params;
+
+    const body = await request.json();
+    const { action, status, riderId, notes } = body as {
+      action: "accept" | "reject" | "update_status" | "assign_rider";
+      status?: string;
+      riderId?: string;
+      notes?: string;
+    };
+
+    if (!action) {
+      throw new AppError("Action is required", 400, "MISSING_ACTION");
+    }
+
+    // Build the update payload
+    const updatePayload: Record<string, unknown> = {};
+
+    switch (action) {
+      case "accept":
+        updatePayload.status = "confirmed";
+        break;
+
+      case "reject":
+        updatePayload.status = "cancelled";
+        if (notes) updatePayload.notes = notes;
+        break;
+
+      case "update_status":
+        if (!status) {
+          throw new AppError(
+            "Status is required for update_status action",
+            400,
+            "MISSING_STATUS"
+          );
+        }
+        const validStatuses = [
+          "pending",
+          "confirmed",
+          "preparing",
+          "ready",
+          "picked_up",
+          "in_transit",
+          "delivered",
+          "cancelled",
+          "refunded",
+        ];
+        if (!validStatuses.includes(status)) {
+          throw new AppError(
+            `Invalid status. Must be one of: ${validStatuses.join(", ")}`,
+            400,
+            "INVALID_STATUS"
+          );
+        }
+        updatePayload.status = status;
+        if (notes) updatePayload.notes = notes;
+        break;
+
+      case "assign_rider":
+        if (!riderId) {
+          throw new AppError(
+            "riderId is required for assign_rider action",
+            400,
+            "MISSING_RIDER_ID"
+          );
+        }
+        updatePayload.rider_id = riderId;
+        updatePayload.status = "picked_up";
+        break;
+
+      default:
+        throw new AppError("Invalid action", 400, "INVALID_ACTION");
+    }
+
+    // Update the order
+    const { data: updatedOrder, error: updateError } = await supabase
+      .from("orders")
+      .update(updatePayload as never)
+      .eq("id", id)
+      .select(
+        `
+        id,
+        total_amount,
+        delivery_fee,
+        status,
+        payment_method,
+        payment_status,
+        delivery_address,
+        notes,
+        created_at,
+        buyer:profiles!orders_buyer_id_fkey (
+          id,
+          full_name,
+          phone,
+          avatar_url
+        ),
+        seller:profiles!orders_seller_id_fkey (
+          id,
+          full_name
+        )
+      `
+      )
+      .single();
+
+    if (updateError) {
+      return NextResponse.json(
+        { error: updateError.message },
+        { status: 500 }
+      );
+    }
+
+    // Log admin action
+    await supabase.from("admin_logs").insert({
+      admin_id: profile.id,
+      action: action,
+      resource_type: "order",
+      resource_id: id,
+      new_data: updatePayload,
+    } as never);
+
+    return NextResponse.json({ order: updatedOrder });
+  } catch (error) {
+    return handleApiError(error);
+  }
+}
