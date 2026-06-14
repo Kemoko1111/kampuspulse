@@ -38,3 +38,43 @@ export async function PATCH(
     return handleApiError(error);
   }
 }
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const { supabase } = await requireRole(["admin"]);
+
+    const { data: profile, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    
+    // Also fetch basic stats for the user
+    const [{ count: orderCount }, { count: spentCount }] = await Promise.all([
+      supabase.from("orders").select("*", { count: "exact", head: true }).eq("buyer_id", id),
+      supabase.from("orders").select("total_amount").eq("buyer_id", id).eq("status", "delivered")
+    ]);
+
+    // Calculate total spent
+    const { data: orders } = await supabase.from("orders").select("total_amount").eq("buyer_id", id).eq("status", "delivered");
+    const totalSpent = (orders as any[])?.reduce((acc, curr) => acc + (curr.total_amount || 0), 0) || 0;
+
+    return NextResponse.json({ 
+      data: {
+        ...(profile as any || {}),
+        stats: {
+          totalOrders: orderCount || 0,
+          totalSpent: totalSpent
+        }
+      }
+    });
+  } catch (error) {
+    return handleApiError(error);
+  }
+}
