@@ -77,7 +77,7 @@ export default function EdwomPage() {
           </div>
           <div className="flex items-center gap-2">
             {profile?.role === "admin" && (
-              <Link href="/admin/marketplace/new" className="hidden sm:flex items-center gap-2 bg-blue-600/10 text-blue-400 border border-blue-500/20 px-4 py-2 rounded-xl text-sm font-bold hover:bg-blue-600/20 transition-all">
+              <Link href="/admin/shop/new" className="hidden sm:flex items-center gap-2 bg-blue-600/10 text-blue-400 border border-blue-500/20 px-4 py-2 rounded-xl text-sm font-bold hover:bg-blue-600/20 transition-all">
                 <Package className="w-4 h-4" /> Add Product
               </Link>
             )}
