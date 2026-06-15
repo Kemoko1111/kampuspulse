@@ -59,19 +59,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const supabase = createClient();
 
   const fetchProfile = useCallback(
-    async (userId: string) => {
+    async (currentUser: User) => {
       const { data } = await supabase
         .from("profiles")
         .select("*")
-        .eq("user_id", userId)
+        .eq("user_id", currentUser.id)
         .single();
-      if (data) setProfile(data as Profile);
+      
+      if (data) {
+        const profileData = data as any;
+        // Sync metadata if the database trigger missed it (e.g. email signups)
+        const meta = currentUser.user_metadata || {};
+        const updates: any = {};
+        let needsUpdate = false;
+
+        if (meta.role && profileData.role !== meta.role) {
+          updates.role = meta.role;
+          updates.status = meta.role === "student" ? "active" : "pending";
+          needsUpdate = true;
+        }
+        
+        const fields = ["phone", "student_id", "department", "hall_of_residence"];
+        for (const field of fields) {
+          if (meta[field] && profileData[field] !== meta[field]) {
+            updates[field] = meta[field];
+            needsUpdate = true;
+          }
+        }
+
+        if (needsUpdate) {
+          const { data: updatedData } = await supabase
+            .from("profiles")
+            .update(updates as never)
+            .eq("id", profileData.id)
+            .select()
+            .single();
+            
+          if (updatedData) {
+            setProfile(updatedData as Profile);
+            return;
+          }
+        }
+
+        setProfile(profileData as Profile);
+      }
     },
     [supabase]
   );
 
   const refreshProfile = useCallback(async () => {
-    if (user) await fetchProfile(user.id);
+    if (user) await fetchProfile(user);
   }, [user, fetchProfile]);
 
   useEffect(() => {
@@ -80,7 +117,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchProfile(session.user.id);
+        fetchProfile(session.user);
         registerFcmToken();
       }
       setLoading(false);
@@ -93,7 +130,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        await fetchProfile(session.user.id);
+        await fetchProfile(session.user);
         registerFcmToken();
       } else {
         setProfile(null);
