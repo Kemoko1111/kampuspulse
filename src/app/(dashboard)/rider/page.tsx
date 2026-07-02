@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { apiFetch } from "@/lib/api-client";
+import { toast } from "react-hot-toast";
 import { createClient } from "@/lib/supabase/client";
 import type { Ride } from "@/types";
 
@@ -27,8 +28,37 @@ export default function RiderDashboard() {
   const [incomingRide, setIncomingRide] = useState<Ride | null>(null);
   const [activeRide, setActiveRide] = useState<Ride | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [todayEarnings, setTodayEarnings] = useState(0);
+  const [locationLoading, setLocationLoading] = useState(true);
+  const [timeoutSeconds, setTimeoutSeconds] = useState(30);
+
+  const activeRideRef = useRef<Ride | null>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const locationWatchRef = useRef<number | null>(null);
   const supabase = createClient();
+
+  useEffect(() => {
+    activeRideRef.current = activeRide;
+  }, [activeRide]);
+
+  const fetchTodayEarnings = useCallback(async () => {
+    if (!profile?.id) return;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const { data, error } = await supabase.from('rides')
+      .select('actual_fare')
+      .eq('rider_id', profile.id)
+      .eq('status', 'completed')
+      .gte('updated_at', today.toISOString());
+    if (!error && data) {
+      const sum = (data as any[]).reduce((acc, row) => acc + (row.actual_fare || 0), 0);
+      setTodayEarnings(sum);
+    }
+  }, [profile?.id, supabase]);
+
+  useEffect(() => {
+    fetchTodayEarnings();
+  }, [fetchTodayEarnings]);
 
   const updateLocation = useCallback(async (lat: number, lng: number) => {
     setRiderLocation([lat, lng]);
@@ -47,14 +77,14 @@ export default function RiderDashboard() {
   }, []);
 
   useEffect(() => {
-    setAvailability(true);
-
     if ("geolocation" in navigator) {
       locationWatchRef.current = navigator.geolocation.watchPosition(
         (pos) => {
+          setLocationLoading(false);
           updateLocation(pos.coords.latitude, pos.coords.longitude);
         },
         () => {
+          setLocationLoading(false);
           updateLocation(UCC_CENTER[0], UCC_CENTER[1]);
         },
         { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 }
@@ -99,7 +129,7 @@ export default function RiderDashboard() {
         },
         (payload) => {
           const ride = payload.new as Ride;
-          if (ride.status === "accepted" && !activeRide) {
+          if (ride.status === "accepted" && !activeRideRef.current) {
             setIncomingRide(ride);
           } else if (["en_route", "arrived", "in_progress"].includes(ride.status)) {
             setActiveRide(ride);
@@ -107,13 +137,60 @@ export default function RiderDashboard() {
           } else if (ride.status === "completed" || ride.status === "cancelled") {
             setActiveRide(null);
             setIncomingRide(null);
+            if (ride.status === "completed") fetchTodayEarnings();
           }
         }
       )
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [profile?.id, supabase]);
+  }, [profile?.id, supabase, fetchTodayEarnings]);
+
+  useEffect(() => {
+    if (incomingRide && !activeRide) {
+      if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+      
+      try {
+        const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioContext) {
+          const ctx = new AudioContext();
+          const osc = ctx.createOscillator();
+          const gainNode = ctx.createGain();
+          
+          osc.connect(gainNode);
+          gainNode.connect(ctx.destination);
+          
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(880, ctx.currentTime);
+          gainNode.gain.setValueAtTime(0.1, ctx.currentTime);
+          
+          osc.start();
+          gainNode.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + 0.5);
+          osc.stop(ctx.currentTime + 0.5);
+        }
+      } catch (e) {}
+
+      setTimeoutSeconds(30);
+      if (timeoutRef.current) clearInterval(timeoutRef.current);
+      
+      timeoutRef.current = setInterval(() => {
+        setTimeoutSeconds((prev) => {
+          if (prev <= 1) {
+            if (timeoutRef.current) clearInterval(timeoutRef.current);
+            handleDecline();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else {
+      if (timeoutRef.current) clearInterval(timeoutRef.current);
+    }
+
+    return () => {
+      if (timeoutRef.current) clearInterval(timeoutRef.current);
+    };
+  }, [incomingRide, activeRide]);
 
   const handleAccept = async () => {
     if (!incomingRide) return;
@@ -123,11 +200,12 @@ export default function RiderDashboard() {
         method: "PATCH",
         body: JSON.stringify({ status: "en_route" }),
       });
-      if (res.ok) {
-        const { data } = await res.json();
-        setActiveRide(data);
-        setIncomingRide(null);
-      }
+      if (!res.ok) throw new Error("Failed to accept ride");
+      const { data } = await res.json();
+      setActiveRide(data);
+      setIncomingRide(null);
+    } catch (e: any) {
+      toast.error(e.message || "Failed to accept ride");
     } finally {
       setActionLoading(false);
     }
@@ -137,11 +215,14 @@ export default function RiderDashboard() {
     if (!incomingRide) return;
     setActionLoading(true);
     try {
-      await apiFetch(`/api/rides/${incomingRide.id}`, {
+      const res = await apiFetch(`/api/rides/${incomingRide.id}`, {
         method: "PATCH",
         body: JSON.stringify({ status: "cancelled" }),
       });
+      if (!res.ok) throw new Error("Failed to decline ride");
       setIncomingRide(null);
+    } catch (e: any) {
+      toast.error(e.message || "Failed to decline ride");
     } finally {
       setActionLoading(false);
     }
@@ -159,14 +240,15 @@ export default function RiderDashboard() {
         method: "PATCH",
         body: JSON.stringify({ status: nextStatus }),
       });
-      if (res.ok) {
-        const { data } = await res.json();
-        if (nextStatus === "completed") {
-          setActiveRide(null);
-        } else {
-          setActiveRide(data);
-        }
+      if (!res.ok) throw new Error("Failed to update status");
+      const { data } = await res.json();
+      if (nextStatus === "completed") {
+        setActiveRide(null);
+      } else {
+        setActiveRide(data);
       }
+    } catch (e: any) {
+      toast.error(e.message || "Failed to update status");
     } finally {
       setActionLoading(false);
     }
@@ -201,7 +283,7 @@ export default function RiderDashboard() {
           </button>
           <div className="glass-card px-4 py-2 rounded-2xl flex flex-col items-end">
             <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Today&apos;s Earnings</span>
-            <span className="font-bold text-green-400">GHS 0.00</span>
+            <span className="font-bold text-green-400">GHS {todayEarnings.toFixed(2)}</span>
           </div>
         </div>
       </div>
@@ -233,7 +315,7 @@ export default function RiderDashboard() {
                 <div className="flex items-center justify-center gap-3">
                   <div className="w-3 h-3 rounded-full bg-blue-500 animate-ping" />
                   <span className="font-medium text-blue-400">
-                    {isOnline ? "Finding requests..." : "Go online to receive rides"}
+                    {locationLoading ? "Acquiring GPS location..." : isOnline ? "Finding requests..." : "Go online to receive rides"}
                   </span>
                 </div>
               </motion.div>
@@ -271,6 +353,10 @@ export default function RiderDashboard() {
                       {incomingRide.distance_km != null && (
                         <div className="text-xs text-muted-foreground mt-1 font-medium">{incomingRide.distance_km.toFixed(1)} km</div>
                       )}
+                      <div className="mt-2 text-xs font-bold text-red-400 flex items-center justify-end gap-1">
+                        <Clock className="w-3 h-3" />
+                        00:{timeoutSeconds.toString().padStart(2, '0')}
+                      </div>
                     </div>
                   </div>
 

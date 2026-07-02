@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { useCallback, useState } from "react";
+import { useCallback, useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import {
   MapPin, Navigation, Clock,
@@ -10,6 +10,8 @@ import {
   Shield, Phone, History,
   FileText, Coffee,
 } from "lucide-react";
+import { useAuth } from "@/contexts/auth-context";
+import { createClient } from "@/lib/supabase/client";
 import { apiFetch } from "@/lib/api-client";
 import { CAMPUS_LOCATIONS, estimateCampusTrip } from "@/lib/campus-locations";
 import { calculateFare } from "@/lib/services/fare.service";
@@ -20,6 +22,7 @@ const GoogleMap = dynamic(
 );
 
 const DEFAULT_FARE = { base_fare: 5, per_km_rate: 2.5, per_min_rate: 0.5 };
+const DEFAULT_DELIVERY_FARE = { base_fare: 8, per_km_rate: 3, per_min_rate: 0.75 };
 
 const rideTypes = [
   { id: "ride", icon: Bike, label: "Ride", desc: "Get a campus ride", price: "GHS 5+", color: "text-purple-400", bg: "bg-purple-500/10", border: "border-purple-500/20" },
@@ -54,8 +57,58 @@ const PAYMENT_MAP: Record<string, string> = {
   airteltigo: "airteltigo",
 };
 
+// Maps the UI's service-type ids to the deliveries table's delivery_type CHECK values.
+const DELIVERY_TYPE_MAP: Record<string, string> = {
+  delivery: "package",
+  food: "food",
+  document: "document",
+};
+
 export default function EzzyRidePage() {
+  const { profile } = useAuth();
+  const supabase = createClient();
   const [activeType, setActiveType] = useState("ride");
+  const [onlineRidersCount, setOnlineRidersCount] = useState(0);
+  const [onlineRidersList, setOnlineRidersList] = useState<any[]>([]);
+  const [recentRidesList, setRecentRidesList] = useState<any[]>([]);
+  
+  useEffect(() => {
+    fetch('/api/rides/online-count')
+      .then(res => res.json())
+      .then(data => {
+        if (data.count !== undefined) setOnlineRidersCount(data.count);
+        if (data.riders) setOnlineRidersList(data.riders);
+      })
+      .catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    if (!profile?.id) return;
+    const fetchHistory = async () => {
+      const { data } = await supabase
+        .from('rides')
+        .select(`
+          id, pickup_address, destination_address, created_at, actual_fare, status,
+          rider:rider_profiles(profiles(full_name))
+        `)
+        .eq('passenger_id', profile.id)
+        .order('created_at', { ascending: false })
+        .limit(3);
+        
+      if (data) {
+        const formatted = data.map((r: any) => ({
+          from: r.pickup_address,
+          to: r.destination_address,
+          time: new Date(r.created_at).toLocaleDateString(),
+          fare: r.actual_fare || 0,
+          status: r.status,
+          rider: r.rider?.profiles?.full_name || 'Finding Rider...',
+        }));
+        setRecentRidesList(formatted);
+      }
+    };
+    fetchHistory();
+  }, [profile?.id, supabase]);
   const [pickup, setPickup] = useState("");
   const [destination, setDestination] = useState("");
   const [pickupCoords, setPickupCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -75,7 +128,7 @@ export default function EzzyRidePage() {
       : null;
 
   const estimatedFare = tripEstimate
-    ? calculateFare(tripEstimate.km, tripEstimate.mins, DEFAULT_FARE)
+    ? calculateFare(tripEstimate.km, tripEstimate.mins, activeType === "ride" ? DEFAULT_FARE : DEFAULT_DELIVERY_FARE)
     : null;
 
   const handlePickupSelect = useCallback((_lat: number, _lng: number, address: string) => {
@@ -115,30 +168,57 @@ export default function EzzyRidePage() {
     setError(null);
 
     try {
-      const res = await apiFetch("/api/rides", {
-        method: "POST",
-        body: JSON.stringify({
-          pickupAddress: pickup,
-          pickupLat: trip.pickupResolved.lat,
-          pickupLng: trip.pickupResolved.lng,
-          destinationAddress: destination,
-          destinationLat: trip.destResolved.lat,
-          destinationLng: trip.destResolved.lng,
-          distanceKm: trip.km,
-          durationMinutes: trip.mins,
-          paymentMethod: PAYMENT_MAP[paymentMethod] || "mtn_momo",
-        }),
-      });
+      if (activeType === "ride") {
+        const res = await apiFetch("/api/rides", {
+          method: "POST",
+          body: JSON.stringify({
+            pickupAddress: pickup,
+            pickupLat: trip.pickupResolved.lat,
+            pickupLng: trip.pickupResolved.lng,
+            destinationAddress: destination,
+            destinationLat: trip.destResolved.lat,
+            destinationLng: trip.destResolved.lng,
+            distanceKm: trip.km,
+            durationMinutes: trip.mins,
+            paymentMethod: PAYMENT_MAP[paymentMethod] || "mtn_momo",
+          }),
+        });
 
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to book ride");
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || "Failed to book ride");
+        }
+
+        const { data } = await res.json();
+        setBookedRideId(data.ride.id);
+        setMatchedRiderName(data.matchedRider?.profile?.full_name || null);
+        setBooked(true);
+      } else {
+        // Delivery Flow
+        const res = await apiFetch("/api/deliveries", {
+          method: "POST",
+          body: JSON.stringify({
+            pickupAddress: pickup,
+            pickupLat: trip.pickupResolved.lat,
+            pickupLng: trip.pickupResolved.lng,
+            destinationAddress: destination,
+            destinationLat: trip.destResolved.lat,
+            destinationLng: trip.destResolved.lng,
+            distanceKm: trip.km,
+            durationMinutes: trip.mins,
+            deliveryType: DELIVERY_TYPE_MAP[activeType] || "package",
+          }),
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || "Failed to create delivery");
+        }
+
+        const { data } = await res.json();
+        setMatchedRiderName("Rider"); // Or show wait message
+        setBooked(true);
       }
-
-      const { data } = await res.json();
-      setBookedRideId(data.ride.id);
-      setMatchedRiderName(data.matchedRider?.profile?.full_name || null);
-      setBooked(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to book ride");
     } finally {
@@ -161,7 +241,7 @@ export default function EzzyRidePage() {
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1.5 glass border border-green-500/20 rounded-full px-3 py-1.5">
               <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-              <span className="text-xs font-medium text-green-400">120 Riders Online</span>
+              <span className="text-xs font-medium text-green-400">{onlineRidersCount} Riders Online</span>
             </div>
           </div>
         </motion.div>
@@ -281,15 +361,18 @@ export default function EzzyRidePage() {
                   {estimatedFare != null && durationMinutes != null && (
                     <p className="text-xs text-muted-foreground mt-1">ETA: ~{durationMinutes} minutes · GHS {estimatedFare.toFixed(2)}</p>
                   )}
-                  {bookedRideId && (
+                  {activeType === "ride" && bookedRideId && (
                     <Link href={`/ezzyride/track/${bookedRideId}`} className="inline-flex items-center gap-1.5 text-xs text-purple-400 mt-2 font-medium">
                       Track Live <ArrowRight className="w-3.5 h-3.5" />
                     </Link>
                   )}
+                  {activeType !== "ride" && (
+                     <p className="text-xs text-muted-foreground mt-2">Check your deliveries in Tasks.</p>
+                  )}
                 </div>
               ) : (
                 <button id="book-ride-btn" onClick={handleBook}
-                  disabled={booking || !pickupCoords || !destinationCoords || !distanceKm}
+                  disabled={booking || !pickup.trim() || !destination.trim()}
                   className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-purple-500 text-white font-semibold py-3.5 rounded-xl hover:shadow-glow transition-all disabled:opacity-50">
                   {booking ? (
                     <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Finding Rider...</>
@@ -308,31 +391,29 @@ export default function EzzyRidePage() {
             <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }} className="glass-card p-5">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-display font-bold text-base">Nearby Riders</h3>
-                <span className="text-xs text-green-400 font-medium">● 120 online</span>
+                <span className="text-xs text-green-400 font-medium">● {onlineRidersCount} online</span>
               </div>
               <div className="space-y-3">
-                {onlineRiders.map(({ name, avatar, rating, trips, vehicle, eta, location }) => (
-                  <div key={name} className="flex items-center gap-3 p-3 glass border border-white/10 rounded-xl hover:border-purple-500/20 transition-all">
+                {onlineRidersList.length > 0 ? onlineRidersList.map(({ name, avatar, rating, trips, lat, lng }, i) => (
+                  <div key={i} className="flex items-center gap-3 p-3 glass border border-white/10 rounded-xl hover:border-purple-500/20 transition-all">
                     <div className="relative">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-600 to-purple-400 flex items-center justify-center text-white text-xs font-bold">{avatar}</div>
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-600 to-purple-400 flex items-center justify-center text-white text-xs font-bold">{avatar || name.substring(0, 2)}</div>
                       <div className="absolute -bottom-0.5 -right-0.5 status-dot-online border border-background" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="font-semibold text-sm flex items-center gap-1.5">
                         {name}
-                        <span className="text-[10px] bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-full px-1.5 py-0.5">{vehicle}</span>
+                        <span className="text-[10px] bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-full px-1.5 py-0.5">Verified</span>
                       </div>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                        {rating} · {trips} trips · {location}
+                        {rating} · {trips} trips
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-purple-400 font-bold text-sm">{eta}</div>
-                      <div className="text-[10px] text-muted-foreground">away</div>
-                    </div>
                   </div>
-                ))}
+                )) : (
+                  <div className="text-sm text-muted-foreground">Looking for riders...</div>
+                )}
               </div>
             </motion.div>
 
@@ -362,12 +443,12 @@ export default function EzzyRidePage() {
             <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }} className="glass-card p-5">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-display font-bold text-base">Recent Rides</h3>
-                <button className="text-xs text-purple-400 flex items-center gap-1">
+                <Link href="/ezzyride/history" className="text-xs text-purple-400 flex items-center gap-1 hover:text-purple-300">
                   <History className="w-3.5 h-3.5" /> History
-                </button>
+                </Link>
               </div>
               <div className="space-y-2">
-                {recentRides.map(({ from, to, time, fare, rider }, i) => (
+                {recentRidesList.length > 0 ? recentRidesList.map(({ from, to, time, fare, rider }, i) => (
                   <div key={i} className="flex items-center gap-3 p-3 glass border border-white/10 rounded-xl">
                     <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center flex-shrink-0">
                       <Bike className="w-4 h-4 text-purple-400" />
@@ -377,11 +458,13 @@ export default function EzzyRidePage() {
                       <div className="text-[10px] text-muted-foreground">{rider} · {time}</div>
                     </div>
                     <div className="text-right">
-                      <div className="text-sm font-bold text-foreground">GHS {fare}</div>
+                      <div className="text-sm font-bold text-foreground">GHS {fare.toFixed(2)}</div>
                       <div className="text-[10px] text-green-400">✓ Done</div>
                     </div>
                   </div>
-                ))}
+                )) : (
+                  <div className="text-sm text-muted-foreground">No recent rides found.</div>
+                )}
               </div>
             </motion.div>
           </div>

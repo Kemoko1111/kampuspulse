@@ -25,6 +25,8 @@ const studentNav = [
 const riderNav = [
   { href: "/rider", label: "Driver App", icon: Bike },
   { href: "/y3adwuma", label: "Tasks", icon: Briefcase },
+  { href: "/rider/earnings", label: "Earnings", icon: Zap },
+  { href: "/rider/history", label: "History", icon: Briefcase },
   { href: "/messages", label: "Messages", icon: MessageSquare },
 ];
 

@@ -8,9 +8,10 @@ import dynamic from "next/dynamic";
 import {
   ArrowLeft, Phone, MessageSquare, MapPin,
   Star, Shield, CheckCircle,
-  Clock, Bike,
+  Clock, Bike, X, Send
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { toast } from "react-hot-toast";
 import type { Ride, Profile } from "@/types";
 
 const GoogleMap = dynamic(
@@ -46,6 +47,12 @@ export default function TrackPage() {
   const { id } = useParams<{ id: string }>();
   const [ride, setRide] = useState<RideWithRelations | null>(null);
   const [loading, setLoading] = useState(true);
+  const [liveRiderLocation, setLiveRiderLocation] = useState<{lat: number, lng: number} | null>(null);
+  const [rating, setRating] = useState(0);
+  const [reviewComment, setReviewComment] = useState("");
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [paying, setPaying] = useState(false);
   const supabase = createClient();
 
   const fetchRide = useCallback(async () => {
@@ -83,6 +90,96 @@ export default function TrackPage() {
 
     return () => { supabase.removeChannel(channel); };
   }, [id, supabase]);
+
+  useEffect(() => {
+    if (!ride?.rider_id) return;
+    
+    supabase.from('rider_profiles').select('current_lat, current_lng').eq('user_id', ride.rider_id).single().then(({data}) => {
+      const d = data as any;
+      if (d?.current_lat && d?.current_lng) {
+        setLiveRiderLocation({ lat: d.current_lat, lng: d.current_lng });
+      }
+    });
+
+    const channel = supabase
+      .channel(`rider-loc:${ride.rider_id}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "rider_profiles", filter: `user_id=eq.${ride.rider_id}` },
+        (payload) => {
+          const p = payload.new as any;
+          if (p.current_lat && p.current_lng) {
+            setLiveRiderLocation({ lat: p.current_lat, lng: p.current_lng });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [ride?.rider_id, supabase]);
+
+  useEffect(() => {
+    if (ride?.status === "completed" && !ride.rating) {
+      setShowRatingModal(true);
+    }
+  }, [ride?.status, ride?.rating]);
+
+  const handleCancel = async () => {
+    if (!confirm("Are you sure you want to cancel this ride?")) return;
+    setCancelling(true);
+    try {
+      const res = await fetch(`/api/rides/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "cancelled" })
+      });
+      if (!res.ok) throw new Error("Failed to cancel");
+      toast.success("Ride cancelled");
+      fetchRide();
+    } catch (e) {
+      toast.error("Could not cancel ride");
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const handlePay = async () => {
+    setPaying(true);
+    try {
+      const res = await fetch(`/api/rides/${id}/pay`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (data.authorizationUrl) {
+        window.location.href = data.authorizationUrl;
+      } else {
+        toast.error("Failed to initiate payment");
+      }
+    } catch (e) {
+      toast.error("Payment failed");
+    } finally {
+      setPaying(false);
+    }
+  };
+
+  const submitRating = async () => {
+    if (!ride || !rating) return;
+    try {
+      await supabase.from('reviews').insert({
+        ride_id: ride.id,
+        reviewer_id: ride.passenger_id,
+        reviewee_id: ride.rider_id,
+        rating,
+        comment: reviewComment
+      } as any);
+      await (supabase.from('rides') as any).update({ rating }).eq('id', ride.id);
+      toast.success("Thanks for rating!");
+      setShowRatingModal(false);
+      setRide({ ...ride, rating });
+    } catch (e) {
+      toast.error("Failed to submit rating");
+    }
+  };
 
   const currentStep = ride ? statusIndex(ride.status) : 0;
   const trackingSteps = useMemo(() => {
@@ -151,6 +248,7 @@ export default function TrackPage() {
                   <GoogleMap
                     height="256px"
                     interactive={false}
+                    riderLocation={liveRiderLocation || undefined}
                     pickup={ride.pickup_lat && ride.pickup_lng ? { lat: ride.pickup_lat, lng: ride.pickup_lng, address: ride.pickup_address } : undefined}
                     destination={ride.destination_lat && ride.destination_lng ? { lat: ride.destination_lat, lng: ride.destination_lng, address: ride.destination_address } : undefined}
                   />
@@ -257,14 +355,29 @@ export default function TrackPage() {
                 </div>
               </motion.div>
 
-              {/* Fare */}
-              {ride.estimated_fare != null && (
-                <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.18 }}
-                  className="glass-card p-4 flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Estimated Fare</span>
-                  <span className="font-display font-black text-xl text-purple-400">GHS {ride.estimated_fare.toFixed(2)}</span>
-                </motion.div>
-              )}
+              {/* Fare & Actions */}
+              <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.18 }} className="space-y-3">
+                {ride.estimated_fare != null && (
+                  <div className="glass-card p-4 flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Estimated Fare</span>
+                    <span className="font-display font-black text-xl text-purple-400">GHS {ride.estimated_fare.toFixed(2)}</span>
+                  </div>
+                )}
+                
+                {ride.status === "completed" && ride.payment_status === "pending" && (
+                  <button onClick={handlePay} disabled={paying}
+                    className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold py-3.5 rounded-2xl hover:opacity-90 transition-opacity">
+                    {paying ? "Processing..." : "Pay Now with MoMo"}
+                  </button>
+                )}
+
+                {["searching", "accepted"].includes(ride.status) && (
+                  <button onClick={handleCancel} disabled={cancelling}
+                    className="w-full text-center text-sm font-bold text-red-400 hover:text-red-300 transition-colors py-2">
+                    {cancelling ? "Cancelling..." : "Cancel Ride"}
+                  </button>
+                )}
+              </motion.div>
 
               {/* Safety */}
               <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}
@@ -277,6 +390,45 @@ export default function TrackPage() {
               </motion.div>
             </div>
           </div>
+          
+          {/* Rating Modal */}
+          {showRatingModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+              <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                className="glass border border-white/10 rounded-3xl p-6 w-full max-w-sm shadow-2xl relative">
+                <button onClick={() => setShowRatingModal(false)} className="absolute top-4 right-4 text-muted-foreground hover:text-white">
+                  <X className="w-5 h-5" />
+                </button>
+                <div className="text-center mb-6">
+                  <div className="w-16 h-16 mx-auto bg-green-500/10 rounded-full flex items-center justify-center mb-3">
+                    <CheckCircle className="w-8 h-8 text-green-400" />
+                  </div>
+                  <h3 className="font-display font-bold text-2xl">You've Arrived!</h3>
+                  <p className="text-sm text-muted-foreground mt-1">How was your trip with {rider?.full_name || 'your rider'}?</p>
+                </div>
+                
+                <div className="flex justify-center gap-2 mb-6">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button key={star} onClick={() => setRating(star)} className="focus:outline-none transition-transform hover:scale-110">
+                      <Star className={`w-10 h-10 ${rating >= star ? "fill-yellow-400 text-yellow-400" : "text-white/20"}`} />
+                    </button>
+                  ))}
+                </div>
+                
+                <textarea
+                  placeholder="Leave a comment (optional)"
+                  value={reviewComment}
+                  onChange={e => setReviewComment(e.target.value)}
+                  className="w-full input-premium h-24 mb-4 resize-none"
+                />
+                
+                <button onClick={submitRating} disabled={!rating}
+                  className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-purple-500 text-white font-bold py-3.5 rounded-2xl hover:opacity-90 transition-opacity disabled:opacity-50">
+                  <Send className="w-4 h-4" /> Submit Rating
+                </button>
+              </motion.div>
+            </div>
+          )}
     </div>
   );
 }
