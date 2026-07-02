@@ -15,7 +15,13 @@ function LoginForm() {
   const { signIn } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("redirectTo") || "/home";
+  const rawRedirectTo = searchParams.get("redirectTo");
+  // Only allow same-origin relative paths — an unvalidated redirectTo would let
+  // ?redirectTo=https://evil.example send a just-authenticated user off-site.
+  const redirectTo =
+    rawRedirectTo && rawRedirectTo.startsWith("/") && !rawRedirectTo.startsWith("//")
+      ? rawRedirectTo
+      : "/home";
 
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");

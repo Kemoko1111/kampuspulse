@@ -48,14 +48,20 @@ export async function GET(request: NextRequest) {
       try {
         const regData = JSON.parse(decodeURIComponent(regDataCookie.value));
 
+        // regData comes from a client-set, non-httpOnly cookie — never trust it for
+        // privileged fields. Only "student"/"rider" are allowed here; anything else
+        // (e.g. a tampered "admin") is discarded in favor of the safe default.
+        const allowedRoles = ["student", "rider"];
+        const role = allowedRoles.includes(regData.role) ? regData.role : "student";
+
         await supabase.from("profiles").update({
           full_name: regData.full_name || sessionData.user.user_metadata?.full_name,
-          role: regData.role,
+          role,
           phone: regData.phone,
           student_id: regData.student_id,
           department: regData.department,
           hall_of_residence: regData.hall_of_residence,
-          status: regData.role === "student" ? "active" : "pending",
+          status: role === "student" ? "active" : "pending",
         } as never).eq("user_id", sessionData.user.id);
 
         response.cookies.delete("kampuspulse_reg_data");
