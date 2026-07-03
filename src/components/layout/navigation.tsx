@@ -11,7 +11,6 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { cn } from "@/lib/utils";
 
 import { useAuth } from "@/contexts/auth-context";
-import { useRealtimeNotifications } from "@/hooks";
 
 const studentNav = [
   { href: "/home", label: "Home", icon: Home },
@@ -36,10 +35,9 @@ const adminNav = [
   { href: "/home", label: "Back to App", icon: Home },
 ];
 
-export function Sidebar() {
+export function Sidebar({ unreadCount = 0 }: { unreadCount?: number }) {
   const pathname = usePathname();
-  const { user, profile } = useAuth();
-  const { unreadCount } = useRealtimeNotifications(user?.id ?? null);
+  const { profile } = useAuth();
 
   // Admin routes use their own layout sidebar
   if (pathname.startsWith('/admin')) return null;
@@ -152,10 +150,9 @@ export function MobileNav() {
   );
 }
 
-export function TopBar({ title }: { title?: string }) {
+export function TopBar({ title, unreadCount = 0 }: { title?: string; unreadCount?: number }) {
   const pathname = usePathname();
-  const { user, profile } = useAuth();
-  const { unreadCount } = useRealtimeNotifications(user?.id ?? null);
+  const { profile } = useAuth();
   const initials = profile?.full_name?.substring(0, 2).toUpperCase() || "ST";
 
   // Admin routes use their own layout top bar
