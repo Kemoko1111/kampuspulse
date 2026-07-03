@@ -126,14 +126,14 @@ export default function OrdersPage() {
     {
       key: "id",
       label: "Order",
-      render: (val: string) => (
-        <span className="font-mono text-xs text-muted-foreground">#{val.slice(0, 8)}</span>
+      render: (val: unknown) => (
+        <span className="font-mono text-xs text-muted-foreground">#{String(val).slice(0, 8)}</span>
       ),
     },
     {
       key: "buyer",
       label: "Customer",
-      render: (_: any, row: Order) => (
+      render: (_: unknown, row: Order) => (
         <div>
           <p className="text-sm font-medium">{row.buyer?.full_name || "Unknown"}</p>
           {row.buyer?.phone && (
@@ -145,25 +145,25 @@ export default function OrdersPage() {
     {
       key: "total_amount",
       label: "Amount",
-      render: (val: number) => (
-        <span className="font-display font-bold text-blue-400">{formatCurrency(val)}</span>
+      render: (val: unknown) => (
+        <span className="font-display font-bold text-blue-400">{formatCurrency(Number(val))}</span>
       ),
     },
     {
       key: "payment_status",
       label: "Payment",
-      render: (val: string) => <StatusBadge status={val} variant="payment" />,
+      render: (val: unknown) => <StatusBadge status={String(val)} variant="payment" />,
     },
     {
       key: "status",
       label: "Status",
-      render: (val: string) => <StatusBadge status={val} variant="order" />,
+      render: (val: unknown) => <StatusBadge status={String(val)} variant="order" />,
     },
     {
       key: "created_at",
       label: "Date",
-      render: (val: string) => (
-        <span className="text-xs text-muted-foreground">{formatRelativeTime(val)}</span>
+      render: (val: unknown) => (
+        <span className="text-xs text-muted-foreground">{formatRelativeTime(String(val))}</span>
       ),
     },
   ];

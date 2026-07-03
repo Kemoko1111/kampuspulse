@@ -16,17 +16,17 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export interface DataTableColumn {
+export interface DataTableColumn<T> {
   key: string;
   label: string;
   sortable?: boolean;
-  render?: (value: any, row: any) => ReactNode;
+  render?: (value: unknown, row: T) => ReactNode;
 }
 
-export interface DataTableAction {
+export interface DataTableAction<T> {
   label: string;
   icon?: LucideIcon;
-  onClick: (row: any) => void;
+  onClick: (row: T) => void;
   variant?: 'default' | 'danger';
 }
 
@@ -36,21 +36,24 @@ export interface DataTablePagination {
   onPageChange: (page: number) => void;
 }
 
-export interface DataTableProps {
-  columns: DataTableColumn[];
-  data: any[];
+export interface DataTableProps<T> {
+  columns: DataTableColumn<T>[];
+  data: T[];
   loading?: boolean;
   emptyMessage?: string;
   emptyIcon?: LucideIcon;
   pagination?: DataTablePagination;
-  onRowClick?: (row: any) => void;
-  actions?: DataTableAction[];
+  onRowClick?: (row: T) => void;
+  actions?: DataTableAction<T>[];
 }
 
 type SortDirection = 'asc' | 'desc' | null;
 
-function getNestedValue(obj: any, key: string): any {
-  return key.split('.').reduce((acc, part) => acc?.[part], obj);
+function getNestedValue(obj: unknown, key: string): unknown {
+  return key.split('.').reduce<unknown>(
+    (acc, part) => (acc && typeof acc === 'object' ? (acc as Record<string, unknown>)[part] : undefined),
+    obj
+  );
 }
 
 function SkeletonRow({ columns, hasActions }: { columns: number; hasActions: boolean }) {
@@ -65,7 +68,7 @@ function SkeletonRow({ columns, hasActions }: { columns: number; hasActions: boo
   );
 }
 
-export function DataTable({
+export function DataTable<T>({
   columns,
   data,
   loading = false,
@@ -74,7 +77,7 @@ export function DataTable({
   pagination,
   onRowClick,
   actions,
-}: DataTableProps) {
+}: DataTableProps<T>) {
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
   const [openActionRow, setOpenActionRow] = useState<number | null>(null);
@@ -98,7 +101,10 @@ export function DataTable({
     const bVal = getNestedValue(b, sortKey);
     if (aVal == null) return 1;
     if (bVal == null) return -1;
-    const cmp = typeof aVal === 'string' ? aVal.localeCompare(bVal) : aVal - bVal;
+    const cmp =
+      typeof aVal === 'string' && typeof bVal === 'string'
+        ? aVal.localeCompare(bVal)
+        : Number(aVal) - Number(bVal);
     return sortDirection === 'asc' ? cmp : -cmp;
   });
 
@@ -189,7 +195,7 @@ export function DataTable({
                     <td key={col.key} className="px-4 py-3.5 text-sm text-foreground">
                       {col.render
                         ? col.render(getNestedValue(row, col.key), row)
-                        : getNestedValue(row, col.key) ?? '—'}
+                        : String(getNestedValue(row, col.key) ?? '—')}
                     </td>
                   ))}
                   {actions && actions.length > 0 && (

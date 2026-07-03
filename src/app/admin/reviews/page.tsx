@@ -105,21 +105,21 @@ export default function ReviewsPage() {
     {
       key: "comment",
       label: "Review",
-      render: (val: string, row: Review) => (
+      render: (val: unknown, row: Review) => (
         <div className="max-w-[300px]">
           <div className="flex items-center gap-1 mb-1 text-yellow-400">
             {Array.from({ length: 5 }).map((_, i) => (
               <Star key={i} className={`w-3 h-3 ${i < row.rating ? "fill-yellow-400" : "text-white/20"}`} />
             ))}
           </div>
-          <p className="text-sm truncate">{val || "No comment"}</p>
+          <p className="text-sm truncate">{String(val || "No comment")}</p>
         </div>
       ),
     },
     {
       key: "user",
       label: "Customer / Product",
-      render: (_: any, row: Review) => (
+      render: (_: unknown, row: Review) => (
         <div>
           <p className="text-sm font-medium">{row.user?.full_name || "Unknown User"}</p>
           <p className="text-xs text-muted-foreground truncate max-w-[200px]">{row.product?.title || "Unknown Product"}</p>
@@ -129,12 +129,12 @@ export default function ReviewsPage() {
     {
       key: "status",
       label: "Status",
-      render: (val: string) => <StatusBadge status={val} />,
+      render: (val: unknown) => <StatusBadge status={String(val)} />,
     },
     {
       key: "created_at",
       label: "Date",
-      render: (val: string) => <span className="text-xs text-muted-foreground">{formatRelativeTime(val)}</span>,
+      render: (val: unknown) => <span className="text-xs text-muted-foreground">{formatRelativeTime(String(val))}</span>,
     },
   ];
 

@@ -113,9 +113,9 @@ export default function RidersPage() {
     {
       key: "full_name",
       label: "Name",
-      render: (val: string, row: Rider) => (
+      render: (val: unknown, row: Rider) => (
         <div>
-          <p className="text-sm font-medium">{val || "Unknown"}</p>
+          <p className="text-sm font-medium">{String(val || "Unknown")}</p>
           {row.phone && <p className="text-xs text-muted-foreground">{row.phone}</p>}
         </div>
       ),
@@ -123,7 +123,7 @@ export default function RidersPage() {
     {
       key: "vehicle",
       label: "Vehicle",
-      render: (_: any, row: Rider) => {
+      render: (_: unknown, row: Rider) => {
         const profile = row.rider_profiles?.[0];
         if (!profile) return <span className="text-sm text-muted-foreground">—</span>;
         return (
@@ -137,7 +137,7 @@ export default function RidersPage() {
     {
       key: "rider_status",
       label: "Duty Status",
-      render: (_: any, row: Rider) => {
+      render: (_: unknown, row: Rider) => {
         const dutyStatus = row.rider_profiles?.[0]?.current_status || "offline";
         return <StatusBadge status={dutyStatus} variant="rider" />;
       },
@@ -145,13 +145,13 @@ export default function RidersPage() {
     {
       key: "status",
       label: "Account Status",
-      render: (val: string) => <StatusBadge status={val} variant="user" />,
+      render: (val: unknown) => <StatusBadge status={String(val)} variant="user" />,
     },
     {
       key: "created_at",
       label: "Joined",
-      render: (val: string) => (
-        <span className="text-xs text-muted-foreground">{formatRelativeTime(val)}</span>
+      render: (val: unknown) => (
+        <span className="text-xs text-muted-foreground">{formatRelativeTime(String(val))}</span>
       ),
     },
   ];

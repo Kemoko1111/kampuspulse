@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import {
   Search, Plus, Clock, MapPin, Star, Filter,
   Flame, Users, BookOpen, Printer, Coffee,
@@ -35,10 +35,11 @@ export default function Y3AdwumaPage() {
     urgent: urgentOnly || undefined,
   });
 
+  const searchTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const handleSearch = useCallback((val: string) => {
     setSearch(val);
-    clearTimeout((window as any).__taskSearch);
-    (window as any).__taskSearch = setTimeout(() => setDebouncedSearch(val), 400);
+    clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => setDebouncedSearch(val), 400);
   }, []);
 
   return (
@@ -66,8 +67,8 @@ export default function Y3AdwumaPage() {
           <div className="grid grid-cols-4 gap-3">
             {[
               { label: "Open Tasks",      value: loading ? "—" : String(count),  color: "text-emerald-400" },
-              { label: "Urgent Tasks",    value: loading ? "—" : String((tasks as any[]).filter((t: any) => t.is_urgent).length), color: "text-red-400" },
-              { label: "Avg. Reward",     value: loading || !(tasks as any[]).length ? "—" : formatCurrency((tasks as any[]).reduce((s: number, t: any) => s + t.reward, 0) / (tasks as any[]).length), color: "text-yellow-400" },
+              { label: "Urgent Tasks",    value: loading ? "—" : String(tasks.filter((t) => t.is_urgent).length), color: "text-red-400" },
+              { label: "Avg. Reward",     value: loading || !tasks.length ? "—" : formatCurrency(tasks.reduce((s, t) => s + t.reward, 0) / tasks.length), color: "text-yellow-400" },
               { label: "Categories",      value: String(taskCategories.length - 1), color: "text-purple-400" },
             ].map(({ label, value, color }) => (
               <div key={label} className="glass-card p-3 text-center">
@@ -138,7 +139,7 @@ export default function Y3AdwumaPage() {
             <div className="flex items-center justify-center py-16">
               <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
             </div>
-          ) : (tasks as any[]).length === 0 ? (
+          ) : tasks.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center glass-card">
               <Briefcase className="w-12 h-12 text-muted-foreground/30 mb-3" />
               <h3 className="font-display font-bold text-lg mb-1">No tasks found</h3>
@@ -149,7 +150,7 @@ export default function Y3AdwumaPage() {
                 <Plus className="w-4 h-4" /> Post a Task
               </Link>
             </div>
-          ) : (tasks as any[]).map((task: any, i: number) => (
+          ) : tasks.map((task, i) => (
             <motion.div key={task.id}
               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}>
               <Link href={`/y3adwuma/task/${task.id}`}>

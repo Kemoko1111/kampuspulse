@@ -121,17 +121,17 @@ export default function PromotionsPage() {
     {
       key: "code",
       label: "Code",
-      render: (val: string) => <span className="font-mono font-bold px-2 py-1 bg-white/10 rounded-md uppercase">{val}</span>,
+      render: (val: unknown) => <span className="font-mono font-bold px-2 py-1 bg-white/10 rounded-md uppercase">{String(val)}</span>,
     },
     {
       key: "description",
       label: "Description",
-      render: (val: string) => <span className="text-sm text-muted-foreground truncate max-w-[200px] block">{val}</span>,
+      render: (val: unknown) => <span className="text-sm text-muted-foreground truncate max-w-[200px] block">{String(val)}</span>,
     },
     {
       key: "discount",
       label: "Discount",
-      render: (_: any, row: Promotion) => (
+      render: (_: unknown, row: Promotion) => (
         <span className="font-bold text-green-400">
           {row.discount_type === "percentage" ? `${row.discount_value}%` : `GHC ${row.discount_value}`}
         </span>
@@ -140,17 +140,17 @@ export default function PromotionsPage() {
     {
       key: "min_order_amount",
       label: "Min Order",
-      render: (val: number) => <span className="text-sm">GHC {val || 0}</span>,
+      render: (val: unknown) => <span className="text-sm">GHC {Number(val) || 0}</span>,
     },
     {
       key: "status",
       label: "Status",
-      render: (val: string) => <StatusBadge status={val} />,
+      render: (val: unknown) => <StatusBadge status={String(val)} />,
     },
     {
       key: "expires_at",
       label: "Expires",
-      render: (val: string) => <span className="text-xs text-muted-foreground">{val ? new Date(val).toLocaleDateString() : "Never"}</span>,
+      render: (val: unknown) => <span className="text-xs text-muted-foreground">{val ? new Date(String(val)).toLocaleDateString() : "Never"}</span>,
     },
   ];
 

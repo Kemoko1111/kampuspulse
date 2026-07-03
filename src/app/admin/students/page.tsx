@@ -110,9 +110,9 @@ export default function StudentsPage() {
     {
       key: "full_name",
       label: "Name",
-      render: (val: string, row: Student) => (
+      render: (val: unknown, row: Student) => (
         <div>
-          <p className="text-sm font-medium">{val || "Unknown"}</p>
+          <p className="text-sm font-medium">{String(val || "Unknown")}</p>
           {row.email && <p className="text-xs text-muted-foreground">{row.email}</p>}
         </div>
       ),
@@ -120,23 +120,23 @@ export default function StudentsPage() {
     {
       key: "phone",
       label: "Phone",
-      render: (val?: string) => <span className="text-sm">{val || "—"}</span>,
+      render: (val: unknown) => <span className="text-sm">{String(val || "—")}</span>,
     },
     {
       key: "hall_of_residence",
       label: "Hostel",
-      render: (val?: string) => <span className="text-sm">{val || "—"}</span>,
+      render: (val: unknown) => <span className="text-sm">{String(val || "—")}</span>,
     },
     {
       key: "status",
       label: "Status",
-      render: (val: string) => <StatusBadge status={val} variant="user" />,
+      render: (val: unknown) => <StatusBadge status={String(val)} variant="user" />,
     },
     {
       key: "created_at",
       label: "Joined",
-      render: (val: string) => (
-        <span className="text-xs text-muted-foreground">{formatRelativeTime(val)}</span>
+      render: (val: unknown) => (
+        <span className="text-xs text-muted-foreground">{formatRelativeTime(String(val))}</span>
       ),
     },
   ];

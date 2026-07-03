@@ -107,9 +107,9 @@ export default function ShopPage() {
     {
       key: "title",
       label: "Product",
-      render: (val: string, row: Product) => (
+      render: (val: unknown, row: Product) => (
         <div>
-          <p className="text-sm font-medium truncate max-w-[250px]">{val}</p>
+          <p className="text-sm font-medium truncate max-w-[250px]">{String(val)}</p>
           <p className="text-xs text-muted-foreground capitalize">{row.category?.name || "Uncategorized"}</p>
         </div>
       ),
@@ -117,29 +117,32 @@ export default function ShopPage() {
     {
       key: "price",
       label: "Price",
-      render: (val: number) => <span className="font-display font-bold text-orange-400">{formatCurrency(val)}</span>,
+      render: (val: unknown) => <span className="font-display font-bold text-orange-400">{formatCurrency(Number(val))}</span>,
     },
     {
       key: "stock_quantity",
       label: "Stock",
-      render: (val: number) => (
-        <div className="flex items-center gap-1.5">
-          <span className={`text-sm ${val === 0 ? "text-red-400 font-bold" : val < 10 ? "text-yellow-400 font-bold" : "text-muted-foreground"}`}>
-            {val}
-          </span>
-          {val === 0 && <AlertTriangle className="w-3 h-3 text-red-400" />}
-        </div>
-      ),
+      render: (val: unknown) => {
+        const stock = Number(val);
+        return (
+          <div className="flex items-center gap-1.5">
+            <span className={`text-sm ${stock === 0 ? "text-red-400 font-bold" : stock < 10 ? "text-yellow-400 font-bold" : "text-muted-foreground"}`}>
+              {stock}
+            </span>
+            {stock === 0 && <AlertTriangle className="w-3 h-3 text-red-400" />}
+          </div>
+        );
+      },
     },
     {
       key: "status",
       label: "Status",
-      render: (val: string) => <StatusBadge status={val} />,
+      render: (val: unknown) => <StatusBadge status={String(val)} />,
     },
     {
       key: "created_at",
       label: "Added",
-      render: (val: string) => <span className="text-xs text-muted-foreground">{formatRelativeTime(val)}</span>,
+      render: (val: unknown) => <span className="text-xs text-muted-foreground">{formatRelativeTime(String(val))}</span>,
     },
   ];
 

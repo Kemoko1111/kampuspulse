@@ -107,9 +107,9 @@ export default function PaymentsPage() {
     {
       key: "id",
       label: "Transaction ID",
-      render: (val: string, row: Transaction) => (
+      render: (val: unknown, row: Transaction) => (
         <div>
-          <span className="font-mono text-xs text-muted-foreground">#{val.slice(0, 8)}</span>
+          <span className="font-mono text-xs text-muted-foreground">#{String(val).slice(0, 8)}</span>
           {row.reference && (
             <p className="text-[10px] text-muted-foreground mt-0.5 uppercase tracking-wider">{row.reference}</p>
           )}
@@ -119,7 +119,7 @@ export default function PaymentsPage() {
     {
       key: "order",
       label: "Customer / Order",
-      render: (_: any, row: Transaction) => (
+      render: (_: unknown, row: Transaction) => (
         <div>
           <p className="text-sm font-medium">{row.order?.buyer?.full_name || "Unknown Customer"}</p>
           {row.order && (
@@ -131,32 +131,32 @@ export default function PaymentsPage() {
     {
       key: "amount",
       label: "Amount",
-      render: (val: number, row: Transaction) => (
+      render: (val: unknown, row: Transaction) => (
         <span className={`font-display font-bold ${row.type === 'refund' || row.type === 'payout' ? 'text-red-400' : 'text-green-400'}`}>
-          {row.type === 'refund' || row.type === 'payout' ? '-' : '+'}{formatCurrency(val)}
+          {row.type === 'refund' || row.type === 'payout' ? '-' : '+'}{formatCurrency(Number(val))}
         </span>
       ),
     },
     {
       key: "payment_method",
       label: "Method",
-      render: (val: string) => <span className="text-sm capitalize">{val || "—"}</span>,
+      render: (val: unknown) => <span className="text-sm capitalize">{String(val || "—")}</span>,
     },
     {
       key: "type",
       label: "Type",
-      render: (val: string) => <span className="text-sm capitalize text-muted-foreground">{val}</span>,
+      render: (val: unknown) => <span className="text-sm capitalize text-muted-foreground">{String(val)}</span>,
     },
     {
       key: "status",
       label: "Status",
-      render: (val: string) => <StatusBadge status={val} variant="payment" />,
+      render: (val: unknown) => <StatusBadge status={String(val)} variant="payment" />,
     },
     {
       key: "created_at",
       label: "Date",
-      render: (val: string) => (
-        <span className="text-xs text-muted-foreground">{formatRelativeTime(val)}</span>
+      render: (val: unknown) => (
+        <span className="text-xs text-muted-foreground">{formatRelativeTime(String(val))}</span>
       ),
     },
   ];

@@ -4,7 +4,7 @@ export { useCart } from "./useCart";
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { Message } from "@/types";
+import type { Message, Notification, Product, Task, Order, Profile } from "@/types";
 
 export function useRealtimeMessages(roomId: string | null) {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -102,7 +102,7 @@ export function useRealtimeMessages(roomId: string | null) {
 }
 
 export function useRealtimeNotifications(userId: string | null) {
-  const [notifications, setNotifications] = useState<unknown[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
@@ -132,7 +132,7 @@ export function useRealtimeNotifications(userId: string | null) {
           filter: `user_id=eq.${userId}`,
         },
         (payload) => {
-          setNotifications((prev) => [payload.new, ...prev]);
+          setNotifications((prev) => [payload.new as Notification, ...prev]);
           setUnreadCount((prev) => prev + 1);
         }
       )
@@ -147,9 +147,7 @@ export function useRealtimeNotifications(userId: string | null) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ markAllRead: true }),
     });
-    setNotifications((prev) =>
-      prev.map((n: unknown) => ({ ...(n as object), is_read: true }))
-    );
+    setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
     setUnreadCount(0);
   }, []);
 
@@ -160,10 +158,7 @@ export function useRealtimeNotifications(userId: string | null) {
       body: JSON.stringify({ id }),
     });
     setNotifications((prev) =>
-      prev.map((n: unknown) => {
-        const notif = n as { id: string };
-        return notif.id === id ? { ...notif, is_read: true } : notif;
-      })
+      prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
     );
     setUnreadCount((prev) => Math.max(0, prev - 1));
   }, []);
@@ -179,7 +174,7 @@ export function useProducts(filters?: {
   maxPrice?: number;
   sort?: string;
 }) {
-  const [products, setProducts] = useState<unknown[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [count, setCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -219,7 +214,7 @@ export function useTasks(filters?: {
   search?: string;
   urgent?: boolean;
 }) {
-  const [tasks, setTasks] = useState<unknown[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [count, setCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
@@ -247,7 +242,7 @@ export function useTasks(filters?: {
 }
 
 export function useOrders(status?: string) {
-  const [orders, setOrders] = useState<unknown[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -268,7 +263,7 @@ export function useOrders(status?: string) {
 }
 
 export function useProfile() {
-  const [profile, setProfile] = useState<unknown>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchProfile = useCallback(async () => {
