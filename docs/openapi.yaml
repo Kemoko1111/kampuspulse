@@ -16,12 +16,34 @@ paths:
         - name: category
           in: query
           schema: { type: string }
+        - name: condition
+          in: query
+          schema: { type: string }
+        - name: sort
+          in: query
+          schema: { type: string, default: created_at }
+        - name: order
+          in: query
+          schema: { type: string, enum: [asc, desc], default: desc }
+        - name: minPrice
+          in: query
+          schema: { type: number }
+        - name: maxPrice
+          in: query
+          schema: { type: number }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
       responses:
-        "200": { description: Product list }
+        "200": { description: Paginated product list }
     post:
-      summary: Create product
+      summary: Create product (admin only)
       responses:
         "201": { description: Product created }
+        "403": { description: Not an admin }
   /products/{id}:
     get:
       summary: Get product
@@ -32,6 +54,27 @@ paths:
           schema: { type: string, format: uuid }
       responses:
         "200": { description: Product details }
+        "404": { description: Product not found }
+    patch:
+      summary: Update product (seller only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: Product updated }
+        "403": { description: Not the product's seller }
+    delete:
+      summary: Delete product (seller only, soft delete)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: Product deleted }
+        "403": { description: Not the product's seller }
   /cart:
     get:
       summary: Get cart
@@ -41,46 +84,518 @@ paths:
       summary: Add to cart
       responses:
         "201": { description: Item added }
+    patch:
+      summary: Update cart item quantity (quantity 0 removes item)
+      responses:
+        "200": { description: Cart item updated }
+    delete:
+      summary: Remove item from cart, or clear cart if no productId given
+      parameters:
+        - name: productId
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: Item removed / cart cleared }
   /orders:
     get:
-      summary: List orders
+      summary: List orders for current user
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string }
       responses:
         "200": { description: Order list }
     post:
       summary: Create order from cart
       responses:
         "201": { description: Order created with payment URL }
+  /csrf:
+    get:
+      summary: Get CSRF token
+      responses:
+        "200": { description: CSRF token issued }
+  /profile:
+    get:
+      summary: Get current user's profile, including wallet balance
+      responses:
+        "200": { description: Profile details }
+        "401": { description: Unauthorized }
+    patch:
+      summary: Update current user's profile
+      responses:
+        "200": { description: Profile updated }
+        "401": { description: Unauthorized }
+  /upload:
+    post:
+      summary: Upload a file (multipart/form-data - file, bucket) to Supabase storage
+      responses:
+        "201": { description: File uploaded }
+  /deliveries:
+    post:
+      summary: Create delivery request (EZZYRIDE package/food delivery)
+      responses:
+        "200": { description: "Delivery request created, waiting for a rider" }
   /tasks:
     get:
       summary: List tasks
+      parameters:
+        - name: category
+          in: query
+          schema: { type: string }
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: urgent
+          in: query
+          schema: { type: boolean }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
       responses:
-        "200": { description: Task list }
+        "200": { description: Paginated task list }
     post:
       summary: Create task
       responses:
         "201": { description: Task created }
+  /tasks/{id}:
+    get:
+      summary: Get task details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: Task details }
+        "404": { description: Task not found }
+    patch:
+      summary: Update task status, or edit task fields (poster only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: Task updated }
+        "403": { description: Not the task's poster }
+    delete:
+      summary: Delete task (poster only, soft delete)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: Task deleted }
+        "403": { description: Not the task's poster }
   /tasks/{id}/apply:
     post:
       summary: Apply for task
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
       responses:
         "201": { description: Application submitted }
+  /tasks/{id}/accept:
+    post:
+      summary: Accept a task application (poster only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: "Application accepted, task assigned" }
+  /tasks/{id}/reject:
+    post:
+      summary: Reject a task application (poster only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: Application rejected }
   /rides:
     post:
       summary: Book ride
       responses:
         "201": { description: Ride created }
+  /rides/{id}:
+    get:
+      summary: Get ride details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: Ride details }
+        "404": { description: Ride not found }
+    patch:
+      summary: Update ride status (e.g. accept, start, complete, cancel)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: Ride updated }
+  /rides/{id}/pay:
+    post:
+      summary: Initiate payment for a ride
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: Payment initialized }
+  /rides/online-count:
+    get:
+      summary: Get count of currently online/available riders (EZZYRIDE)
+      responses:
+        "200": { description: Online rider count and a sample of online riders }
+  /rider/availability:
+    patch:
+      summary: Update rider's availability (rider only)
+      responses:
+        "200": { description: Availability updated }
+        "403": { description: Not a rider }
+  /rider/location:
+    patch:
+      summary: Update rider's current location (rider only)
+      responses:
+        "200": { description: Location updated }
+        "403": { description: Not a rider }
+  /messages/rooms:
+    get:
+      summary: List chat rooms for current user
+      responses:
+        "200": { description: Chat room list with latest messages }
+    post:
+      summary: Create or fetch an existing direct-message room with a recipient
+      responses:
+        "200": { description: Existing room returned }
+        "201": { description: New room created }
+  /messages/{roomId}:
+    get:
+      summary: Get messages in a chat room (marks unread messages as read)
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+      responses:
+        "200": { description: Message list }
+        "403": { description: Not a participant in this room }
+    post:
+      summary: Send a message in a chat room
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "201": { description: Message sent }
+        "403": { description: Not a participant in this room }
+  /notifications:
+    get:
+      summary: List notifications for current user
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, default: 30 }
+      responses:
+        "200": { description: Notification list with unread count }
+    patch:
+      summary: Mark one notification (id) or all notifications (markAllRead) as read
+      responses:
+        "200": { description: Notifications marked as read }
+  /fcm/register:
+    post:
+      summary: Register a device's FCM push token for the current user
+      responses:
+        "200": { description: Token registered }
+  /transactions:
+    get:
+      summary: List current user's transactions (last 50)
+      responses:
+        "200": { description: Transaction list }
   /paystack/initialize:
     post:
       summary: Initialize Paystack payment
       responses:
         "200": { description: Payment URL }
+  /paystack/refund:
+    post:
+      summary: Initiate a Paystack refund for a transaction
+      responses:
+        "200": { description: Refund initiated }
+  /paystack/verify:
+    post:
+      summary: Verify a Paystack payment by reference
+      responses:
+        "200": { description: Payment verification result }
   /paystack/webhook:
     post:
       summary: Paystack webhook
+      description: Verifies the x-paystack-signature HMAC and updates transactions/orders/tasks/rides/wallet on charge.success, charge.failed, and refund.processed events. Not user-authenticated.
       responses:
         "200": { description: Event received }
+        "401": { description: Invalid webhook signature }
   /admin/metrics:
     get:
       summary: Admin dashboard metrics
       responses:
         "200": { description: Platform metrics }
+  /admin/analytics:
+    get:
+      summary: Admin analytics for the last 30 days (users, orders, revenue, tasks, rides)
+      responses:
+        "200": { description: Analytics time series }
+  /admin/orders:
+    get:
+      summary: Admin list orders
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: dateFrom
+          in: query
+          schema: { type: string, format: date }
+        - name: dateTo
+          in: query
+          schema: { type: string, format: date }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        "200": { description: Paginated order list with buyer/seller/items }
+  /admin/orders/{id}:
+    get:
+      summary: Admin get order details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: Order details }
+        "404": { description: Order not found }
+    patch:
+      summary: Admin update order (action - accept, reject, update_status, or assign_rider)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: Order updated }
+        "400": { description: Missing or invalid action/status/riderId }
+  /admin/payments:
+    get:
+      summary: Admin list transactions/payments
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: type
+          in: query
+          schema: { type: string }
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        "200": { description: Paginated transaction list }
+  /admin/products:
+    get:
+      summary: Admin list products
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: category_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        "200": { description: Paginated product list }
+    delete:
+      summary: Admin delete product
+      responses:
+        "200": { description: Product deleted }
+  /admin/products/{id}:
+    patch:
+      summary: Admin moderate product status (active, sold, pending, rejected)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: Product status updated }
+  /admin/promotions:
+    get:
+      summary: Admin list promotions
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        "200": { description: Paginated promotion list (empty list if the promotions table does not exist yet) }
+    post:
+      summary: Admin create promotion code
+      responses:
+        "200": { description: Promotion created }
+  /admin/reviews:
+    get:
+      summary: Admin list reviews
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        "200": { description: Paginated review list }
+    patch:
+      summary: Admin approve or hide a review (body - reviewId, action)
+      responses:
+        "200": { description: Review status updated }
+  /admin/reviews/{id}:
+    patch:
+      summary: Admin hide/unhide a review (body - isHidden)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: Review updated }
+  /admin/riders:
+    get:
+      summary: Admin list riders
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        "200": { description: Paginated rider list }
+  /admin/riders/{id}:
+    get:
+      summary: Admin get rider details with completed-order stats
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: Rider details }
+    patch:
+      summary: Admin update rider account status and/or online status (body - status, rider_status)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: Rider updated }
+  /admin/users:
+    get:
+      summary: Admin list users
+      parameters:
+        - name: role
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        "200": { description: Paginated user list }
+    patch:
+      summary: Admin update user status (body - userId, action - approve, suspend, ban, or activate)
+      responses:
+        "200": { description: User status updated }
+        "400": { description: Invalid action }
+  /admin/users/{id}:
+    get:
+      summary: Admin get user details with order stats
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: User details }
+    patch:
+      summary: Admin update user role and/or status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: User updated }
