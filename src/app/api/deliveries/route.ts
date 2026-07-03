@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
         package_description: body.packageDescription,
         estimated_fee: estimatedFee,
         status: "searching",
-      } as any)
+      } as never)
       .select()
       .single();
 

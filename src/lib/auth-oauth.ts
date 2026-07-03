@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { TypedSupabaseClient } from "@/lib/supabase/types";
 
 export function getOAuthCallbackUrl(next = "/home"): string {
   const base =
@@ -10,7 +10,7 @@ export function getOAuthCallbackUrl(next = "/home"): string {
 }
 
 export async function signInWithGoogle(
-  supabase: SupabaseClient<any, "public", any>,
+  supabase: TypedSupabaseClient,
   next = "/home"
 ): Promise<{ error: string | null }> {
   const { data, error } = await supabase.auth.signInWithOAuth({

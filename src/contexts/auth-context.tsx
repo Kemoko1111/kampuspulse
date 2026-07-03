@@ -67,7 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .single();
       
       if (data) {
-        const profileData = data as any;
+        const profileData = data as Profile;
         // Sync metadata if the database trigger missed it (e.g. email signups).
         // role is allow-listed to "student"/"rider" only — never trust arbitrary
         // client metadata here, since that was a privilege-escalation path (client
@@ -75,7 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // The profiles table also enforces this boundary server-side via a trigger,
         // so this is a convenience sync, not the security check.
         const meta = currentUser.user_metadata || {};
-        const updates: any = {};
+        const updates: Partial<Profile> = {};
         let needsUpdate = false;
 
         const selfSelectableRoles = ["student", "rider"];
@@ -88,7 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           needsUpdate = true;
         }
 
-        const fields = ["phone", "student_id", "department", "hall_of_residence"];
+        const fields: (keyof Profile)[] = ["phone", "student_id", "department", "hall_of_residence"];
         for (const field of fields) {
           if (meta[field] && profileData[field] !== meta[field]) {
             updates[field] = meta[field];

@@ -29,13 +29,15 @@ export async function GET(
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     
     // Fetch rider stats
-    const [{ count: completedOrders }] = await Promise.all([
-      supabase.from("orders").select("*", { count: "exact", head: true }).eq("rider_id", id).eq("status", "delivered")
-    ]);
+    const { count: completedOrders } = await supabase
+      .from("orders")
+      .select("*", { count: "exact", head: true })
+      .eq("rider_id", id)
+      .eq("status", "delivered");
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       data: {
-        ...(profile as any || {}),
+        ...(profile as object || {}),
         stats: {
           completedOrders: completedOrders || 0,
         }

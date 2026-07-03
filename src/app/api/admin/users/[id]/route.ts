@@ -63,11 +63,11 @@ export async function GET(
 
     // Calculate total spent
     const { data: orders } = await supabase.from("orders").select("total_amount").eq("buyer_id", id).eq("status", "delivered");
-    const totalSpent = (orders as any[])?.reduce((acc, curr) => acc + (curr.total_amount || 0), 0) || 0;
+    const totalSpent = (orders as { total_amount: number | null }[] | null)?.reduce((acc, curr) => acc + (curr.total_amount || 0), 0) || 0;
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       data: {
-        ...(profile as any || {}),
+        ...(profile as object || {}),
         stats: {
           totalOrders: orderCount || 0,
           totalSpent: totalSpent
