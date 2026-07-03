@@ -101,17 +101,20 @@
     background: rgba(0, 0, 0, 0.4);
   }
 
+  /* Light mode (default): opaque-ish white card with a soft shadow, since a
+     5%-opacity white overlay is nearly invisible against a light background. */
   .glass-card {
-    @apply backdrop-blur-xl border border-white/10 rounded-2xl;
-    background: rgba(255, 255, 255, 0.05);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3),
-      inset 0 0 0 1px rgba(255, 255, 255, 0.08);
-  }
-
-  .glass-card-light {
     @apply backdrop-blur-xl border border-black/5 rounded-2xl;
     background: rgba(255, 255, 255, 0.8);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  }
+
+  /* Dark mode: translucent white overlay over the dark background. */
+  .dark .glass-card {
+    @apply border-white/10;
+    background: rgba(255, 255, 255, 0.05);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.08);
   }
 
   /* Gradient Text */
