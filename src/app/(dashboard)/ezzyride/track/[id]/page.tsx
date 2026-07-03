@@ -404,7 +404,7 @@ export default function TrackPage() {
                   <div className="w-16 h-16 mx-auto bg-green-500/10 rounded-full flex items-center justify-center mb-3">
                     <CheckCircle className="w-8 h-8 text-green-400" />
                   </div>
-                  <h3 className="font-display font-bold text-2xl">You've Arrived!</h3>
+                  <h3 className="font-display font-bold text-2xl">You&apos;ve Arrived!</h3>
                   <p className="text-sm text-muted-foreground mt-1">How was your trip with {rider?.full_name || 'your rider'}?</p>
                 </div>
                 

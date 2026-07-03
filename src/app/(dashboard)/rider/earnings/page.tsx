@@ -62,7 +62,7 @@ export default function EarningsPage() {
             <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center">
               <TrendingUp className="w-5 h-5 text-purple-400" />
             </div>
-            <p className="text-muted-foreground font-medium">Today's Earnings</p>
+            <p className="text-muted-foreground font-medium">Today&apos;s Earnings</p>
           </div>
           <p className="text-4xl font-display font-black text-purple-400">{formatCurrency(todayEarnings)}</p>
         </div>
