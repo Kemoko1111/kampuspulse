@@ -200,7 +200,7 @@ export function useProducts(filters?: {
       setError("Failed to load products");
     }
     setLoading(false);
-  }, [filters?.category, filters?.search, filters?.condition, filters?.sort]);
+  }, [filters?.category, filters?.search, filters?.condition, filters?.minPrice, filters?.maxPrice, filters?.sort]);
 
   useEffect(() => {
     fetchProducts();

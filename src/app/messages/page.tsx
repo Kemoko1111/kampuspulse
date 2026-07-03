@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import {
   Send, Search, Phone, Video, MoreVertical,
-  Image, Smile, ArrowLeft, Loader2,
+  Image as ImageIcon, Smile, ArrowLeft, Loader2,
 } from "lucide-react";
 import { cn, formatRelativeTime, getInitials } from "@/lib/utils";
 import { useRealtimeMessages } from "@/hooks";
@@ -309,7 +309,7 @@ export default function MessagesPage() {
                 <div className="p-4 border-t border-white/5">
                   <div className="flex items-center gap-2">
                     <button className="w-9 h-9 rounded-xl glass border border-white/10 flex items-center justify-center hover:bg-white/10 transition-all flex-shrink-0">
-                      <Image className="w-4 h-4 text-muted-foreground" />
+                      <ImageIcon className="w-4 h-4 text-muted-foreground" />
                     </button>
                     <button className="w-9 h-9 rounded-xl glass border border-white/10 flex items-center justify-center hover:bg-white/10 transition-all flex-shrink-0">
                       <Smile className="w-4 h-4 text-muted-foreground" />

@@ -192,6 +192,11 @@ export default function RiderDashboard() {
     return () => {
       if (timeoutRef.current) clearInterval(timeoutRef.current);
     };
+    // handleDecline is intentionally omitted: it's redefined every render (not
+    // memoized), so including it would reset this countdown on every re-render
+    // instead of only when the ride actually changes. It only reads state
+    // (incomingRide) already covered by this effect's deps, so no staleness.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [incomingRide, activeRide]);
 
   const handleAccept = async () => {
