@@ -30,7 +30,20 @@ export async function POST(request: NextRequest) {
     const rideId = metadata?.ride_id;
     const userId = metadata?.user_id;
 
-    await supabase.from("transactions").update({ status: "success" }).eq("reference", reference);
+    // Paystack retries webhooks on timeout/non-2xx, so this event may arrive more than
+    // once. Only the first delivery flips a transaction from pending to success; retries
+    // find zero matching rows and skip the side effects below (wallet credit, order/task/
+    // ride confirmation, notifications) so they can't be double-applied.
+    const { data: updatedTransactions } = await supabase
+      .from("transactions")
+      .update({ status: "success" })
+      .eq("reference", reference)
+      .neq("status", "success")
+      .select("id");
+
+    if (!updatedTransactions || updatedTransactions.length === 0) {
+      return NextResponse.json({ received: true, duplicate: true });
+    }
 
     if (orderId) {
       await supabase
