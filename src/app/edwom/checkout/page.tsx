@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
+import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -232,7 +233,7 @@ export default function CheckoutPage() {
                     {cartItems.map(item => (
                       <div key={item.product_id} className="flex items-center gap-3 p-3 glass border border-white/10 rounded-xl">
                         {item.product?.images?.[0] ? (
-                          <img src={item.product.images[0]} alt="" className="w-10 h-10 rounded-lg object-cover" />
+                          <Image src={item.product.images[0]} alt="" width={40} height={40} className="w-10 h-10 rounded-lg object-cover" />
                         ) : (
                           <Package className="w-5 h-5 text-muted-foreground/30" />
                         )}
@@ -276,7 +277,7 @@ export default function CheckoutPage() {
                 {cartItems.map(item => (
                   <div key={item.product_id} className="flex items-center gap-2">
                     {item.product?.images?.[0] ? (
-                      <img src={item.product.images[0]} alt="" className="w-8 h-8 rounded-lg object-cover" />
+                      <Image src={item.product.images[0]} alt="" width={32} height={32} className="w-8 h-8 rounded-lg object-cover" />
                     ) : (
                       <Package className="w-4 h-4 text-muted-foreground/30" />
                     )}

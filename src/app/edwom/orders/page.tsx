@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
+import Image from "next/image";
 import { useMemo, useState } from "react";
 import {
   Package, Search, Clock,
@@ -104,7 +105,7 @@ export default function OrdersPage() {
                       {(order.items || []).map((item: OrderItem) => (
                         <div key={item.id} className="flex items-center gap-3 p-2.5 glass border border-white/10 rounded-xl">
                           {item.product?.images?.[0] ? (
-                            <img src={item.product.images[0]} alt="" className="w-10 h-10 rounded-lg object-cover" />
+                            <Image src={item.product.images[0]} alt="" width={40} height={40} className="w-10 h-10 rounded-lg object-cover" />
                           ) : (
                             <Package className="w-5 h-5 text-muted-foreground/30" />
                           )}

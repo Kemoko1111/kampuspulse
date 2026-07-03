@@ -117,6 +117,7 @@ export default function AddProductPage() {
               <div className="relative border-2 border-dashed border-white/10 rounded-2xl hover:border-blue-500/50 transition-colors bg-white/5 overflow-hidden">
                 {imagePreview ? (
                   <div className="relative aspect-video">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- local blob: object URL from URL.createObjectURL; next/image's optimizer can't fetch blob: URLs */}
                     <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
                     <button type="button" onClick={() => { setImageFile(null); setImagePreview(null); }} className="absolute top-2 right-2 w-8 h-8 bg-red-500/80 hover:bg-red-500 text-white flex items-center justify-center rounded-full transition-colors backdrop-blur">
                       <X className="w-4 h-4" />

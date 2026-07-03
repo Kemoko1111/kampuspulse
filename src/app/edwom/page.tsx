@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
+import Image from "next/image";
 import { useState, useCallback, useRef } from "react";
 import {
   Search, ShoppingCart, Heart,
@@ -160,7 +161,13 @@ export default function EdwomPage() {
                         {/* Image */}
                         <div className="relative aspect-square bg-white/5 flex items-center justify-center overflow-hidden">
                           {product.images?.[0] ? (
-                            <img src={product.images[0]} alt={product.title} className="w-full h-full object-cover" />
+                            <Image
+                              src={product.images[0]}
+                              alt={product.title}
+                              fill
+                              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, 20vw"
+                              className="w-full h-full object-cover"
+                            />
                           ) : (
                             <Package className="w-12 h-12 text-muted-foreground/30" />
                           )}
@@ -202,7 +209,7 @@ export default function EdwomPage() {
                     <>
                       <div className="w-20 h-20 rounded-xl bg-white/5 flex items-center justify-center flex-shrink-0 overflow-hidden">
                         {product.images?.[0] ? (
-                          <img src={product.images[0]} alt={product.title} className="w-full h-full object-cover" />
+                          <Image src={product.images[0]} alt={product.title} width={80} height={80} className="w-full h-full object-cover" />
                         ) : <Package className="w-8 h-8 text-muted-foreground/30" />}
                       </div>
                       <div className="flex-1 min-w-0">

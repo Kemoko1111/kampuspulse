@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
+import Image from "next/image";
 import {
   Star, Package, Briefcase, Edit, Settings, Bell,
   Shield, MapPin, Calendar, Loader2, User, LogOut,
@@ -58,7 +59,7 @@ export default function ProfilePage() {
           <div className="relative flex items-start gap-5">
             <div className="relative flex-shrink-0">
               {p.avatar_url ? (
-                <img src={p.avatar_url} alt={p.full_name} className="w-20 h-20 rounded-2xl object-cover" />
+                <Image src={p.avatar_url} alt={p.full_name} width={80} height={80} className="w-20 h-20 rounded-2xl object-cover" />
               ) : (
                 <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-400 flex items-center justify-center text-white text-2xl font-black">
                   {initials}

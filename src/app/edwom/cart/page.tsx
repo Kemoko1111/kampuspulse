@@ -2,6 +2,7 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import Image from "next/image";
 import { useState } from "react";
 import {
   ShoppingCart, Trash2, Plus, Minus, ArrowLeft,
@@ -80,7 +81,7 @@ export default function CartPage() {
                       className="glass-card p-4 flex gap-4">
                       <div className="w-20 h-20 rounded-xl bg-white/5 flex items-center justify-center flex-shrink-0 overflow-hidden">
                         {item.product?.images?.[0] ? (
-                          <img src={item.product.images[0]} alt={item.product.title} className="w-full h-full object-cover" />
+                          <Image src={item.product.images[0]} alt={item.product.title} width={80} height={80} className="w-full h-full object-cover" />
                         ) : (
                           <Package className="w-8 h-8 text-muted-foreground/30" />
                         )}

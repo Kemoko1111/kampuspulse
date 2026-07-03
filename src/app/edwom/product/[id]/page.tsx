@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import {
@@ -90,7 +91,13 @@ export default function ProductPage() {
             <div className="glass-card aspect-square flex items-center justify-center mb-3 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5" />
               {product.images?.[activeImage] ? (
-                <img src={product.images[activeImage]} alt={product.title} className="relative z-10 w-full h-full object-cover" />
+                <Image
+                  src={product.images[activeImage]}
+                  alt={product.title}
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 50vw"
+                  className="relative z-10 w-full h-full object-cover"
+                />
               ) : (
                 <Package className="relative z-10 w-20 h-20 text-muted-foreground/30" />
               )}
@@ -111,7 +118,7 @@ export default function ProductPage() {
                   className={`w-16 h-16 rounded-xl glass border flex items-center justify-center transition-all overflow-hidden
                     ${activeImage === i ? "border-blue-500 bg-blue-500/10" : "border-white/10 hover:border-white/20"}`}>
                   {img ? (
-                    <img src={img} alt="" className="w-full h-full object-cover" />
+                    <Image src={img} alt="" width={64} height={64} className="w-full h-full object-cover" />
                   ) : (
                     <Package className="w-5 h-5 text-muted-foreground/30" />
                   )}
