@@ -6,11 +6,12 @@ import { createClient } from "@/lib/supabase/client";
 import { DollarSign, TrendingUp, Calendar, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/utils";
+import type { Ride } from "@/types";
 
 export default function EarningsPage() {
   const { profile } = useAuth();
   const supabase = createClient();
-  const [earnings, setEarnings] = useState<any[]>([]);
+  const [earnings, setEarnings] = useState<Ride[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

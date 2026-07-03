@@ -16,6 +16,25 @@ import { apiFetch } from "@/lib/api-client";
 import { CAMPUS_LOCATIONS, estimateCampusTrip } from "@/lib/campus-locations";
 import { calculateFare } from "@/lib/services/fare.service";
 
+interface OnlineRider {
+  id: string;
+  name: string;
+  avatar: string | null;
+  rating: number;
+  trips: number;
+  lat: number | null;
+  lng: number | null;
+}
+
+interface RecentRideEntry {
+  from: string;
+  to: string;
+  time: string;
+  fare: number;
+  status: string;
+  rider: string;
+}
+
 const GoogleMap = dynamic(
   () => import("@/components/maps/GoogleMap"),
   { ssr: false, loading: () => <div className="w-full h-full bg-[#0f172a] animate-pulse flex items-center justify-center text-white/50">Loading Map...</div> }
@@ -57,8 +76,8 @@ export default function EzzyRidePage() {
   const supabase = createClient();
   const [activeType, setActiveType] = useState("ride");
   const [onlineRidersCount, setOnlineRidersCount] = useState(0);
-  const [onlineRidersList, setOnlineRidersList] = useState<any[]>([]);
-  const [recentRidesList, setRecentRidesList] = useState<any[]>([]);
+  const [onlineRidersList, setOnlineRidersList] = useState<OnlineRider[]>([]);
+  const [recentRidesList, setRecentRidesList] = useState<RecentRideEntry[]>([]);
   
   useEffect(() => {
     fetch('/api/rides/online-count')
@@ -84,7 +103,15 @@ export default function EzzyRidePage() {
         .limit(3);
         
       if (data) {
-        const formatted = data.map((r: any) => ({
+        type RideHistoryRow = {
+          pickup_address: string;
+          destination_address: string;
+          created_at: string;
+          actual_fare: number | null;
+          status: string;
+          rider: { profiles: { full_name: string | null } | null } | null;
+        };
+        const formatted = (data as RideHistoryRow[]).map((r) => ({
           from: r.pickup_address,
           to: r.destination_address,
           time: new Date(r.created_at).toLocaleDateString(),

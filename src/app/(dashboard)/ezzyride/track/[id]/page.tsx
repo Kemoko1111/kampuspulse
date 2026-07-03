@@ -95,7 +95,7 @@ export default function TrackPage() {
     if (!ride?.rider_id) return;
     
     supabase.from('rider_profiles').select('current_lat, current_lng').eq('user_id', ride.rider_id).single().then(({data}) => {
-      const d = data as any;
+      const d = data as { current_lat: number | null; current_lng: number | null } | null;
       if (d?.current_lat && d?.current_lng) {
         setLiveRiderLocation({ lat: d.current_lat, lng: d.current_lng });
       }
@@ -107,7 +107,7 @@ export default function TrackPage() {
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "rider_profiles", filter: `user_id=eq.${ride.rider_id}` },
         (payload) => {
-          const p = payload.new as any;
+          const p = payload.new as { current_lat: number | null; current_lng: number | null };
           if (p.current_lat && p.current_lng) {
             setLiveRiderLocation({ lat: p.current_lat, lng: p.current_lng });
           }
@@ -166,13 +166,14 @@ export default function TrackPage() {
     if (!ride || !rating) return;
     try {
       await supabase.from('reviews').insert({
-        ride_id: ride.id,
         reviewer_id: ride.passenger_id,
-        reviewee_id: ride.rider_id,
+        reviewed_id: ride.rider_id,
+        type: 'rider',
+        reference_id: ride.id,
         rating,
         comment: reviewComment
-      } as any);
-      await (supabase.from('rides') as any).update({ rating }).eq('id', ride.id);
+      } as never);
+      await supabase.from('rides').update({ rating } as never).eq('id', ride.id);
       toast.success("Thanks for rating!");
       setShowRatingModal(false);
       setRide({ ...ride, rating });

@@ -7,10 +7,21 @@ import { History, ArrowLeft, CheckCircle, XCircle } from "lucide-react";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/utils";
 
+interface RideHistoryItem {
+  id: string;
+  status: string;
+  created_at: string;
+  pickup_address: string;
+  destination_address: string;
+  actual_fare: number | null;
+  estimated_fare: number | null;
+  passenger: { full_name: string | null } | null;
+}
+
 export default function RiderHistoryPage() {
   const { profile } = useAuth();
   const supabase = createClient();
-  const [rides, setRides] = useState<any[]>([]);
+  const [rides, setRides] = useState<RideHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

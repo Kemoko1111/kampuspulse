@@ -22,7 +22,16 @@ export async function GET() {
 
     if (ridersError) throw ridersError;
 
-    const formattedRiders = onlineRiders.map((r: any) => ({
+    type OnlineRiderRow = {
+      id: string;
+      rating: number | null;
+      total_trips: number | null;
+      current_lat: number | null;
+      current_lng: number | null;
+      profiles: { full_name: string | null; avatar_url: string | null } | null;
+    };
+
+    const formattedRiders = (onlineRiders as OnlineRiderRow[]).map((r) => ({
       id: r.id,
       name: r.profiles?.full_name || 'Rider',
       avatar: r.profiles?.avatar_url,
