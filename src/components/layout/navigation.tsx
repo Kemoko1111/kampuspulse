@@ -11,6 +11,7 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { cn } from "@/lib/utils";
 
 import { useAuth } from "@/contexts/auth-context";
+import { useRealtimeNotifications } from "@/hooks";
 
 const studentNav = [
   { href: "/home", label: "Home", icon: Home },
@@ -37,7 +38,8 @@ const adminNav = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { profile } = useAuth();
+  const { user, profile } = useAuth();
+  const { unreadCount } = useRealtimeNotifications(user?.id ?? null);
 
   // Admin routes use their own layout sidebar
   if (pathname.startsWith('/admin')) return null;
@@ -85,7 +87,9 @@ export function Sidebar() {
         <Link href="/notifications" className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all">
           <Bell className="w-4 h-4" />
           Notifications
-          <span className="ml-auto bg-blue-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">3</span>
+          {unreadCount > 0 && (
+            <span className="ml-auto bg-blue-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">{unreadCount}</span>
+          )}
         </Link>
         <Link href="/profile" className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all">
           <User className="w-4 h-4" />
@@ -150,7 +154,8 @@ export function MobileNav() {
 
 export function TopBar({ title }: { title?: string }) {
   const pathname = usePathname();
-  const { profile } = useAuth();
+  const { user, profile } = useAuth();
+  const { unreadCount } = useRealtimeNotifications(user?.id ?? null);
   const initials = profile?.full_name?.substring(0, 2).toUpperCase() || "ST";
 
   // Admin routes use their own layout top bar
@@ -171,7 +176,9 @@ export function TopBar({ title }: { title?: string }) {
           <ThemeToggle />
           <Link href="/notifications" className="relative w-9 h-9 rounded-xl glass border border-white/10 flex items-center justify-center">
             <Bell className="w-4 h-4" />
-            <span className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 rounded-full text-[10px] font-bold text-white flex items-center justify-center">3</span>
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 rounded-full text-[10px] font-bold text-white flex items-center justify-center">{unreadCount}</span>
+            )}
           </Link>
           <Link href="/profile" className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-blue-400 flex items-center justify-center text-white text-xs font-bold">
             {initials}
