@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import {
   Search, ShoppingCart, Heart,
   Star, Flame, Grid3X3, List,
@@ -47,10 +47,11 @@ export default function EdwomPage() {
     sort,
   });
 
+  const searchTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const handleSearch = useCallback((val: string) => {
     setSearch(val);
-    clearTimeout((window as any).__searchTimer);
-    (window as any).__searchTimer = setTimeout(() => setDebouncedSearch(val), 400);
+    clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => setDebouncedSearch(val), 400);
   }, []);
 
   const toggleWishlist = (id: string) =>
@@ -149,7 +150,7 @@ export default function EdwomPage() {
             <div className={viewMode === "grid"
               ? "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"
               : "space-y-3"}>
-              {(products as any[]).map((product: any, i: number) => (
+              {products.map((product, i) => (
                 <motion.div key={product.id}
                   initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
                   className={viewMode === "list" ? "glass-card p-4 flex gap-4 hover:border-white/20 transition-all" : ""}>

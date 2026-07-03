@@ -47,7 +47,7 @@ export default function NotificationsPage() {
             </div>
           ) : (
             <div className="space-y-2">
-              {(notifications as any[]).map((notif: any, i: number) => {
+              {notifications.map((notif, i) => {
                 const cfg = typeConfig[notif.type] || typeConfig.system;
                 const Icon = cfg.icon;
                 return (

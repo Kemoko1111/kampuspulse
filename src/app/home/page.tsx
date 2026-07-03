@@ -91,7 +91,7 @@ export default function HomePage() {
     ezzyride: `${liveRides} riders online`,
   };
 
-  const recentActivity = (notifications as any[]).slice(0, 4);
+  const recentActivity = notifications.slice(0, 4);
 
   return (
     <div className="min-h-screen">
@@ -223,7 +223,7 @@ export default function HomePage() {
               <div className="p-8 text-center text-muted-foreground text-sm">
                 No recent activity yet. Start shopping, tasking or riding!
               </div>
-            ) : recentActivity.map((notif: any, i) => {
+            ) : recentActivity.map((notif, i) => {
               const cfg = activityIcons[notif.type] || { icon: Bell, color: "text-blue-400" };
               const Icon = cfg.icon;
               return (

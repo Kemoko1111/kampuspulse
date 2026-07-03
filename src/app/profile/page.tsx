@@ -35,7 +35,7 @@ export default function ProfilePage() {
     );
   }
 
-  const p = profile as any;
+  const p = profile as typeof profile & { wallet?: { balance: number; currency: string } | null };
   const initials = getInitials(p.full_name || user?.email || "U");
   const walletBalance = p.wallet?.balance ?? 0;
 
@@ -46,7 +46,7 @@ export default function ProfilePage() {
     { label: "Member Since", value: formatDate(p.created_at).split(" ")[2] || "2024", icon: Calendar, color: "text-emerald-400" },
   ];
 
-  const filteredOrders = orders as any[];
+  const filteredOrders = orders;
 
   return (
     <div className="min-h-screen">
@@ -145,7 +145,7 @@ export default function ProfilePage() {
               <div className="p-8 text-center text-muted-foreground text-sm">
                 No orders yet. <Link href="/edwom" className="text-blue-400 hover:underline">Start shopping!</Link>
               </div>
-            ) : filteredOrders.slice(0, 5).map((order: any, i: number) => (
+            ) : filteredOrders.slice(0, 5).map((order, i) => (
               <div key={order.id || i} className="flex items-center gap-4 p-4 hover:bg-white/3 transition-colors">
                 <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center flex-shrink-0">
                   <Package className="w-5 h-5 text-blue-400" />
