@@ -51,7 +51,7 @@ export default function RiderDashboard() {
       .eq('status', 'completed')
       .gte('updated_at', today.toISOString());
     if (!error && data) {
-      const sum = (data as any[]).reduce((acc, row) => acc + (row.actual_fare || 0), 0);
+      const sum = (data as { actual_fare: number | null }[]).reduce((acc, row) => acc + (row.actual_fare || 0), 0);
       setTodayEarnings(sum);
     }
   }, [profile?.id, supabase]);
@@ -151,7 +151,9 @@ export default function RiderDashboard() {
       if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
       
       try {
-        const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+        const AudioContext =
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext?: typeof window.AudioContext }).webkitAudioContext;
         if (AudioContext) {
           const ctx = new AudioContext();
           const osc = ctx.createOscillator();
@@ -204,8 +206,8 @@ export default function RiderDashboard() {
       const { data } = await res.json();
       setActiveRide(data);
       setIncomingRide(null);
-    } catch (e: any) {
-      toast.error(e.message || "Failed to accept ride");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to accept ride");
     } finally {
       setActionLoading(false);
     }
@@ -221,8 +223,8 @@ export default function RiderDashboard() {
       });
       if (!res.ok) throw new Error("Failed to decline ride");
       setIncomingRide(null);
-    } catch (e: any) {
-      toast.error(e.message || "Failed to decline ride");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to decline ride");
     } finally {
       setActionLoading(false);
     }
@@ -247,8 +249,8 @@ export default function RiderDashboard() {
       } else {
         setActiveRide(data);
       }
-    } catch (e: any) {
-      toast.error(e.message || "Failed to update status");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to update status");
     } finally {
       setActionLoading(false);
     }

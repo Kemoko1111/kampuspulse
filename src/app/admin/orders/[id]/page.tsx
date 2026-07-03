@@ -8,6 +8,7 @@ import {
   ArrowLeft, Package, User, CreditCard,
   MapPin, FileText, Loader2, CheckCircle,
   XCircle, ChefHat, Bike, Check,
+  type LucideIcon,
 } from "lucide-react";
 import { formatCurrency, formatRelativeTime } from "@/lib/utils";
 import { apiFetch } from "@/lib/api-client";
@@ -45,7 +46,7 @@ interface OrderDetail {
   }[];
 }
 
-const statusFlow: Record<string, { next: string; label: string; icon: any }> = {
+const statusFlow: Record<string, { next: string; label: string; icon: LucideIcon }> = {
   pending: { next: "confirmed", label: "Accept Order", icon: Check },
   confirmed: { next: "preparing", label: "Mark as Preparing", icon: ChefHat },
   preparing: { next: "ready", label: "Mark as Ready", icon: Package },
@@ -263,7 +264,7 @@ export default function OrderDetailPage() {
               {(order.order_items || []).map((item) => (
                 <tr key={item.id} className="hover:bg-white/5 transition-colors">
                   <td className="px-5 py-3 text-sm font-medium">
-                    {(item.product as any)?.title || "Unknown Product"}
+                    {item.product?.title || "Unknown Product"}
                   </td>
                   <td className="px-5 py-3 text-sm text-center">{item.quantity}</td>
                   <td className="px-5 py-3 text-sm text-right text-muted-foreground">

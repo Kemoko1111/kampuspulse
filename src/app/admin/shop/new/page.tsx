@@ -16,7 +16,7 @@ export default function AddProductPage() {
   const [error, setError] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [categories, setCategories] = useState<any[]>([]);
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -79,8 +79,8 @@ export default function AddProductPage() {
       }
 
       router.push("/admin");
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create product");
     } finally {
       setLoading(false);
     }

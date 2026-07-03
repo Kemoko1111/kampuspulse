@@ -224,7 +224,7 @@ export default function PromotionsPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs text-muted-foreground mb-1 uppercase tracking-wider font-bold">Type</label>
-                  <select className="input-premium w-full appearance-none" value={formData.discount_type} onChange={e => setFormData({...formData, discount_type: e.target.value as any})}>
+                  <select className="input-premium w-full appearance-none" value={formData.discount_type} onChange={e => setFormData({...formData, discount_type: e.target.value as "percentage" | "fixed"})}>
                     <option value="percentage">Percentage (%)</option>
                     <option value="fixed">Fixed Amount</option>
                   </select>

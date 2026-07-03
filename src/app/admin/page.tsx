@@ -154,7 +154,7 @@ export default function AdminDashboard() {
                       <StatusBadge status={order.status} variant="order" />
                     </div>
                     <p className="text-sm font-medium mt-0.5 truncate">
-                      {(order.buyer as any)?.full_name || "Unknown Customer"}
+                      {order.buyer?.full_name || "Unknown Customer"}
                     </p>
                   </div>
                   <div className="text-right flex-shrink-0 ml-4">
