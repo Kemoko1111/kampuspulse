@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, Outfit } from "next/font/google";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { AuthProvider } from "@/contexts/auth-context";
+import { NotificationsProvider } from "@/contexts/notifications-context";
 import "./globals.css";
 
 const inter = Inter({
@@ -59,7 +60,9 @@ export default function RootLayout({
       <body className={`${inter.variable} ${outfit.variable} antialiased`}>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
           <AuthProvider>
-            {children}
+            <NotificationsProvider>
+              {children}
+            </NotificationsProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

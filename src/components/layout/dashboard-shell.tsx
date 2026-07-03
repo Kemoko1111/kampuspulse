@@ -1,18 +1,17 @@
 "use client";
 
 import { Sidebar, MobileNav, TopBar } from "@/components/layout/navigation";
-import { useAuth } from "@/contexts/auth-context";
-import { useRealtimeNotifications } from "@/hooks";
+import { useNotifications } from "@/contexts/notifications-context";
 
 /** Single app shell — use only in route layouts, never inside page components. */
 export function DashboardShell({ children }: { children: React.ReactNode }) {
-  // Subscribed once here (not inside Sidebar/TopBar) — both are mounted at the
-  // same time (shown/hidden via CSS, not conditional rendering), so calling
-  // useRealtimeNotifications independently in each raced to open a Realtime
-  // channel with the same topic name and crashed with "cannot add
-  // postgres_changes callbacks ... after subscribe()".
-  const { user } = useAuth();
-  const { unreadCount } = useRealtimeNotifications(user?.id ?? null);
+  // unreadCount comes from the app-wide NotificationsProvider (see
+  // notifications-context.tsx) rather than calling useRealtimeNotifications
+  // directly here — that hook opens a Supabase Realtime channel and throws if
+  // more than one component tries to subscribe to the same channel name, so
+  // every consumer (this shell, home page, notifications page) must share one
+  // subscription via context.
+  const { unreadCount } = useNotifications();
 
   return (
     <div className="min-h-screen bg-background">

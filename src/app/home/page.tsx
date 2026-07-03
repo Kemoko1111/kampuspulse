@@ -10,7 +10,8 @@ import {
   Gift,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
-import { useRealtimeNotifications, useOrders } from "@/hooks";
+import { useNotifications } from "@/contexts/notifications-context";
+import { useOrders } from "@/hooks";
 import { createClient } from "@/lib/supabase/client";
 import { formatRelativeTime } from "@/lib/utils";
 
@@ -60,7 +61,7 @@ const activityIcons: Record<string, { icon: React.ElementType; color: string }> 
 
 export default function HomePage() {
   const { profile, user } = useAuth();
-  const { notifications, unreadCount } = useRealtimeNotifications(user?.id ?? null);
+  const { notifications, unreadCount } = useNotifications();
   const { orders } = useOrders();
   const [liveTasks, setLiveTasks] = useState(0);
   const [liveRides, setLiveRides] = useState(0);

@@ -2,8 +2,7 @@
 
 import { motion } from "framer-motion";
 import { Bell, Check, Package, Briefcase, Bike, MessageSquare, Tag, Info, Loader2 } from "lucide-react";
-import { useAuth } from "@/contexts/auth-context";
-import { useRealtimeNotifications } from "@/hooks";
+import { useNotifications } from "@/contexts/notifications-context";
 import { formatRelativeTime } from "@/lib/utils";
 
 const typeConfig: Record<string, { icon: React.ElementType; color: string; bg: string }> = {
@@ -17,8 +16,7 @@ const typeConfig: Record<string, { icon: React.ElementType; color: string; bg: s
 };
 
 export default function NotificationsPage() {
-  const { user } = useAuth();
-  const { notifications, unreadCount, loading, markAllRead, markOneRead } = useRealtimeNotifications(user?.id ?? null);
+  const { notifications, unreadCount, loading, markAllRead, markOneRead } = useNotifications();
 
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 space-y-5">
