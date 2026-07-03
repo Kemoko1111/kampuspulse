@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import {
-  Bell, Send, AlertTriangle, Users, Bike, Megaphone, Loader2
+  Bell, Send, AlertTriangle, Megaphone, Loader2
 } from "lucide-react";
 import { PageHeader } from "@/components/admin/page-header";
 import { formatRelativeTime } from "@/lib/utils";

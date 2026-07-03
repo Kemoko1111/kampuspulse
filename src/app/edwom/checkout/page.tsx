@@ -186,7 +186,7 @@ export default function CheckoutPage() {
                   </h2>
                   <p className="text-sm text-muted-foreground">Choose your preferred mobile money provider</p>
                   <div className="space-y-3">
-                    {paymentMethods.map(({ id, label, emoji, color, border, bg, placeholder }) => (
+                    {paymentMethods.map(({ id, label, emoji, color, border, bg }) => (
                       <button key={id} id={`pay-${id}`} onClick={() => setPayMethod(id)}
                         className={`w-full flex items-center gap-3 p-4 rounded-2xl border text-left transition-all
                           ${payMethod === id ? `${bg} ${border}` : "glass border-white/10 hover:border-white/20"}`}>

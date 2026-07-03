@@ -1,17 +1,16 @@
 "use client";
 
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import Link from "next/link";
 import { useState } from "react";
 import {
   Eye, EyeOff, Mail, Lock, User, Phone,
   Zap, ArrowRight, ArrowLeft, CheckCircle,
-  ShoppingBag, Bike, Shield, AlertCircle, Chrome,
+  Bike, Shield, AlertCircle, Chrome,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { signInWithGoogle } from "@/lib/auth-oauth";
 import { useAuth } from "@/contexts/auth-context";
-import { useRouter } from "next/navigation";
 
 type Role = "student" | "rider";
 
@@ -46,7 +45,6 @@ export default function RegisterPage() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [role, setRole] = useState<Role>("student");
   const { signUp } = useAuth();
-  const router = useRouter();
   const [form, setForm] = useState({
     email: "",
     phone: "",

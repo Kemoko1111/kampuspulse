@@ -66,14 +66,14 @@ export class RideService {
   }
 
   async matchRider(rideId: string, pickupLat: number, pickupLng: number) {
-    const { data: riders, error } = await this.rideRepo.findAvailableRiders(pickupLat, pickupLng);
+    const { data: riders, error } = await this.rideRepo.findAvailableRiders();
     if (error) throw error;
 
     type RiderWithLocation = { current_lat: number | null; current_lng: number | null; user_id: string };
     const nearest = findNearestRider((riders || []) as RiderWithLocation[], pickupLat, pickupLng);
     if (!nearest) return null;
 
-    const { data: ride, error: updateError } = await this.rideRepo.update(rideId, {
+    const { error: updateError } = await this.rideRepo.update(rideId, {
       rider_id: nearest.user_id,
       status: "accepted",
     });

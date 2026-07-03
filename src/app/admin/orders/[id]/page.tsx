@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import {
   ArrowLeft, Package, User, CreditCard,
   MapPin, FileText, Loader2, CheckCircle,
-  XCircle, Clock, ChefHat, Bike, Check,
+  XCircle, ChefHat, Bike, Check,
 } from "lucide-react";
 import { formatCurrency, formatRelativeTime } from "@/lib/utils";
 import { apiFetch } from "@/lib/api-client";
@@ -55,7 +55,6 @@ const statusFlow: Record<string, { next: string; label: string; icon: any }> = {
 
 export default function OrderDetailPage() {
   const params = useParams();
-  const router = useRouter();
   const orderId = params.id as string;
 
   const [order, setOrder] = useState<OrderDetail | null>(null);
@@ -131,7 +130,6 @@ export default function OrderDetailPage() {
 
   const nextStep = statusFlow[order.status];
   const isTerminal = order.status === "delivered" || order.status === "cancelled";
-  const subtotal = order.total_amount - (order.delivery_fee || 0);
 
   return (
     <div className="space-y-6">

@@ -1,7 +1,6 @@
 "use client";
 
-import { motion, AnimatePresence } from "framer-motion";
-import { useState } from "react";
+import { motion } from "framer-motion";
 import Link from "next/link";
 import {
   ShoppingBag,
@@ -92,8 +91,6 @@ const testimonials = [
 ];
 
 export default function LandingPage() {
-  const [activeFeature, setActiveFeature] = useState(0);
-
   return (
     <div className="min-h-screen bg-background overflow-x-hidden">
       {/* Grid background */}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import {
@@ -31,7 +31,6 @@ interface StudentDetail {
 
 export default function StudentDetailPage() {
   const params = useParams();
-  const router = useRouter();
   const studentId = params.id as string;
 
   const [student, setStudent] = useState<StudentDetail | null>(null);

@@ -4,8 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
-  Users, Check, X, ShieldAlert, Ban,
-  Search, Eye, Loader2
+  Users, Check, ShieldAlert, Ban,
+  Eye
 } from "lucide-react";
 import { formatRelativeTime } from "@/lib/utils";
 import { apiFetch } from "@/lib/api-client";

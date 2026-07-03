@@ -39,18 +39,6 @@ const savedLocations = CAMPUS_LOCATIONS.slice(0, 3).map((loc, i) => ({
   icon: i === 0 ? "🏠" : i === 1 ? "📚" : "🛒",
 }));
 
-const onlineRiders = [
-  { name: "Kofi A.", avatar: "KA", rating: 4.9, trips: 234, vehicle: "Motorbike", eta: "2 min", location: "Near Library" },
-  { name: "Yaw B.", avatar: "YB", rating: 4.8, trips: 187, vehicle: "Bicycle", eta: "5 min", location: "Near Science Block" },
-  { name: "Ama K.", avatar: "AK", rating: 4.7, trips: 142, vehicle: "Motorbike", eta: "8 min", location: "Near Casely Hayford" },
-];
-
-const recentRides = [
-  { from: "Atlantic Hall", to: "Main Library", time: "2h ago", fare: 8, status: "completed", rider: "Kofi A." },
-  { from: "Science Market", to: "Valco Hall", time: "Yesterday", fare: 15, status: "completed", rider: "Yaw B." },
-  { from: "Main Campus", to: "Abura Market", time: "2d ago", fare: 22, status: "completed", rider: "Ama K." },
-];
-
 const PAYMENT_MAP: Record<string, string> = {
   mtn: "mtn_momo",
   telecel: "telecel",
@@ -215,7 +203,7 @@ export default function EzzyRidePage() {
           throw new Error(err.error || "Failed to create delivery");
         }
 
-        const { data } = await res.json();
+        await res.json();
         setMatchedRiderName("Rider"); // Or show wait message
         setBooked(true);
       }
@@ -394,7 +382,7 @@ export default function EzzyRidePage() {
                 <span className="text-xs text-green-400 font-medium">● {onlineRidersCount} online</span>
               </div>
               <div className="space-y-3">
-                {onlineRidersList.length > 0 ? onlineRidersList.map(({ name, avatar, rating, trips, lat, lng }, i) => (
+                {onlineRidersList.length > 0 ? onlineRidersList.map(({ name, avatar, rating, trips }, i) => (
                   <div key={i} className="flex items-center gap-3 p-3 glass border border-white/10 rounded-xl hover:border-purple-500/20 transition-all">
                     <div className="relative">
                       <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-600 to-purple-400 flex items-center justify-center text-white text-xs font-bold">{avatar || name.substring(0, 2)}</div>

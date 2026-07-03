@@ -23,7 +23,7 @@ export class RideRepository {
     return this.supabase.from("rides").update(data as never).eq("id", id).select().single();
   }
 
-  async findAvailableRiders(lat: number, lng: number) {
+  async findAvailableRiders() {
     return this.supabase
       .from("rider_profiles")
       .select(`*, profile:profiles!rider_profiles_user_id_fkey(id, full_name, avatar_url, phone)`)

@@ -136,7 +136,7 @@ export default function TrackPage() {
       if (!res.ok) throw new Error("Failed to cancel");
       toast.success("Ride cancelled");
       fetchRide();
-    } catch (e) {
+    } catch {
       toast.error("Could not cancel ride");
     } finally {
       setCancelling(false);
@@ -155,7 +155,7 @@ export default function TrackPage() {
       } else {
         toast.error("Failed to initiate payment");
       }
-    } catch (e) {
+    } catch {
       toast.error("Payment failed");
     } finally {
       setPaying(false);
@@ -176,7 +176,7 @@ export default function TrackPage() {
       toast.success("Thanks for rating!");
       setShowRatingModal(false);
       setRide({ ...ride, rating });
-    } catch (e) {
+    } catch {
       toast.error("Failed to submit rating");
     }
   };

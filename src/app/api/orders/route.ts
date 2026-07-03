@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     const { status } = orderQuerySchema.parse(Object.fromEntries(searchParams));
 
     const repo = new OrderRepository(supabase);
-    let query = repo.findByProfile(profile.id, status === "all" ? undefined : status);
+    const query = repo.findByProfile(profile.id, status === "all" ? undefined : status);
     const { data, error } = await query;
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   Package, Clock, CheckCircle, XCircle,
-  Loader2, Eye, Check, X,
+  Eye, Check, X,
 } from "lucide-react";
 import { formatCurrency, formatRelativeTime } from "@/lib/utils";
 import { apiFetch } from "@/lib/api-client";

@@ -5,9 +5,9 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   ShoppingBag, Briefcase, Bike, ArrowRight,
-  TrendingUp, Package, Star, Bell, Search,
-  Flame, Clock, MapPin, ChevronRight, Zap,
-  ShieldCheck, Gift,
+  Package, Star, Bell, Search,
+  Flame, MapPin, ChevronRight,
+  Gift,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useRealtimeNotifications, useOrders } from "@/hooks";

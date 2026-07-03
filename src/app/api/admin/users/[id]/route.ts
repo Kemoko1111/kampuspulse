@@ -56,10 +56,10 @@ export async function GET(
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     
     // Also fetch basic stats for the user
-    const [{ count: orderCount }, { count: spentCount }] = await Promise.all([
-      supabase.from("orders").select("*", { count: "exact", head: true }).eq("buyer_id", id),
-      supabase.from("orders").select("total_amount").eq("buyer_id", id).eq("status", "delivered")
-    ]);
+    const { count: orderCount } = await supabase
+      .from("orders")
+      .select("*", { count: "exact", head: true })
+      .eq("buyer_id", id);
 
     // Calculate total spent
     const { data: orders } = await supabase.from("orders").select("total_amount").eq("buyer_id", id).eq("status", "delivered");

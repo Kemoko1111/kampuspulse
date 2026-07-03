@@ -1,10 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
-  ShoppingBag, Check, Plus, AlertTriangle, Trash2, Edit
+  ShoppingBag, Plus, AlertTriangle, Trash2
 } from "lucide-react";
 import { formatCurrency, formatRelativeTime } from "@/lib/utils";
 import { apiFetch } from "@/lib/api-client";
@@ -36,7 +35,6 @@ const statusOptions = [
 ];
 
 export default function ShopPage() {
-  const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);

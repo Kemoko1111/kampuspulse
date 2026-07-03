@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import {
-  BarChart3, DollarSign, Package, Users, ShoppingBag, Download, TrendingUp, Calculator, Loader2
+  DollarSign, Package, Users, ShoppingBag, Download, Calculator, Loader2
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { PageHeader } from "@/components/admin/page-header";

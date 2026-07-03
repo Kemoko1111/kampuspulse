@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowLeft, Loader2, Package, Upload, Image as ImageIcon, X } from "lucide-react";
+import { ArrowLeft, Loader2, Package, Image as ImageIcon, X } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/contexts/auth-context";
 import { apiFetch, uploadFile } from "@/lib/api-client";

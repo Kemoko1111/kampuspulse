@@ -3,7 +3,6 @@ import { handleApiError } from "@/lib/errors/app-error";
 import { requireProfile } from "@/lib/middleware/auth";
 import { verifyPaymentSchema } from "@/lib/validators/payment";
 import { PaymentService } from "@/lib/services/payment.service";
-import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request: NextRequest) {
   try {

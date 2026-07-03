@@ -4,10 +4,10 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { useState, useCallback } from "react";
 import {
-  Search, SlidersHorizontal, ShoppingCart, Heart,
-  Star, ArrowRight, Flame, Grid3X3, List,
+  Search, ShoppingCart, Heart,
+  Star, Flame, Grid3X3, List,
   ChevronRight, Package, Smartphone, Shirt, BookOpen,
-  Utensils, Sparkles, Home, Cpu, ShoppingBag, Loader2, AlertCircle,
+  Utensils, Sparkles, Home, Cpu, Loader2, AlertCircle,
 } from "lucide-react";
 import { useProducts, useCart } from "@/hooks";
 import { useAuth } from "@/contexts/auth-context";
@@ -38,7 +38,7 @@ export default function EdwomPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [sort, setSort]                     = useState("created_at");
   const [wishlist, setWishlist]             = useState<string[]>([]);
-  const { addItem, count: cartCount } = useCart();
+  const { count: cartCount } = useCart();
   const { profile } = useAuth();
 
   const { products, count, loading, error } = useProducts({
@@ -55,11 +55,6 @@ export default function EdwomPage() {
 
   const toggleWishlist = (id: string) =>
     setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
-
-  const handleAddToCart = async (e: React.MouseEvent, product: { id: string }) => {
-    e.preventDefault();
-    await addItem(product.id, 1);
-  };
 
   return (
     <div className="min-h-screen">

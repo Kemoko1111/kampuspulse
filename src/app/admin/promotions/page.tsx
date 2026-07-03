@@ -3,9 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import {
-  Tag, Plus, AlertTriangle, Calendar, Percent, DollarSign, Loader2
+  Tag, Plus, AlertTriangle, Percent, Loader2
 } from "lucide-react";
-import { formatRelativeTime } from "@/lib/utils";
 import { apiFetch } from "@/lib/api-client";
 import { PageHeader } from "@/components/admin/page-header";
 import { FilterBar } from "@/components/admin/filter-bar";
@@ -111,7 +110,7 @@ export default function PromotionsPage() {
         code: "", description: "", discount_type: "percentage", discount_value: "", min_order_amount: "", max_uses: "", expires_at: ""
       });
       fetchPromotions();
-    } catch (err: any) {
+    } catch {
       alert("Error creating promotion");
     } finally {
       setActionLoading(false);

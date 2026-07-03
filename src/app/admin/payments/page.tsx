@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import {
-  CreditCard, DollarSign, Activity, CheckCircle, Clock
+  CreditCard, DollarSign, Activity, CheckCircle
 } from "lucide-react";
 import { formatCurrency, formatRelativeTime } from "@/lib/utils";
 import { PageHeader } from "@/components/admin/page-header";

@@ -2,9 +2,8 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { useState } from "react";
 import {
-  Star, Package, Briefcase, Bike, Edit, Settings, Bell,
+  Star, Package, Briefcase, Edit, Settings, Bell,
   Shield, MapPin, Calendar, Loader2, User, LogOut,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
@@ -15,7 +14,6 @@ export default function ProfilePage() {
   const { user, signOut } = useAuth();
   const { profile, loading } = useProfile();
   const { orders } = useOrders();
-  const [activeTab, setActiveTab] = useState("all");
 
   if (loading) {
     return (

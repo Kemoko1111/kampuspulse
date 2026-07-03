@@ -168,7 +168,7 @@ export default function RiderDashboard() {
           gainNode.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + 0.5);
           osc.stop(ctx.currentTime + 0.5);
         }
-      } catch (e) {}
+      } catch {}
 
       setTimeoutSeconds(30);
       if (timeoutRef.current) clearInterval(timeoutRef.current);

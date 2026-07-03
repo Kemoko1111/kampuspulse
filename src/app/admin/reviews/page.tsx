@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import {
-  Star, MessageSquare, EyeOff, Check, AlertTriangle
+  Star, MessageSquare, EyeOff, Check
 } from "lucide-react";
 import { formatRelativeTime } from "@/lib/utils";
 import { apiFetch } from "@/lib/api-client";

@@ -1,7 +1,6 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
 import { Bell, Check, Package, Briefcase, Bike, MessageSquare, Tag, Info, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useRealtimeNotifications } from "@/hooks";

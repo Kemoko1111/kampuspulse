@@ -2,7 +2,6 @@
 
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { cn } from '@/lib/utils';
 
 export interface ChartDataPoint {
   label: string;

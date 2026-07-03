@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/auth-context";
 import { createClient } from "@/lib/supabase/client";
-import { motion } from "framer-motion";
 import { DollarSign, TrendingUp, Calendar, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/utils";
@@ -84,7 +83,7 @@ export default function EarningsPage() {
           <p className="text-muted-foreground text-center py-8">No completed rides yet.</p>
         ) : (
           <div className="space-y-3">
-            {earnings.map((ride, i) => (
+            {earnings.map((ride) => (
               <div key={ride.id} className="flex items-center justify-between p-4 glass border border-white/5 rounded-2xl hover:border-white/10 transition-colors">
                 <div>
                   <p className="font-medium text-sm">{ride.pickup_address} → {ride.destination_address}</p>

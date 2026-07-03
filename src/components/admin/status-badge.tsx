@@ -68,7 +68,7 @@ function formatStatusLabel(status: string): string {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-export function StatusBadge({ status, variant }: StatusBadgeProps) {
+export function StatusBadge({ status }: StatusBadgeProps) {
   const colors = getStatusColor(status);
 
   return (
