@@ -198,13 +198,19 @@ export class PaymentService {
     const result = await response.json();
     if (!result.status) throw new AppError(result.message || "Refund failed", 400);
 
-    await this.supabase.from("refunds").insert({
+    const { error: refundError } = await this.supabase.from("refunds").insert({
       transaction_id: transactionId,
       amount,
       reason,
       status: "pending",
       paystack_reference: result.data?.transaction?.reference,
     } as never);
+    if (refundError) {
+      throw new AppError(
+        `Paystack refund succeeded but the local refund record failed to save: ${refundError.message}`,
+        500,
+      );
+    }
 
     return result.data;
   }
