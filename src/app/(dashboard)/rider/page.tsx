@@ -85,20 +85,41 @@ export default function RiderDashboard() {
     fetchTodayEarnings();
   }, [fetchTodayEarnings]);
 
-  // A rider only receives ride requests when is_verified — surface it so an
-  // unverified/revoked rider understands why nothing ever comes in, instead
-  // of silently sitting on "Finding requests..." forever.
+  // Rehydrate on mount: read back is_verified + is_available (so a rider who
+  // reloads isn't silently shown as offline), and re-load any ride already
+  // assigned to them (so refreshing/navigating mid-trip doesn't lose the
+  // active ride while the passenger still sees "Rider Assigned").
   useEffect(() => {
     if (!profile?.id) return;
     let cancelled = false;
+
     supabase
       .from("rider_profiles")
-      .select("is_verified")
+      .select("is_verified, is_available")
       .eq("user_id", profile.id)
       .maybeSingle()
       .then(({ data }) => {
-        if (!cancelled) setIsVerified((data as { is_verified: boolean } | null)?.is_verified ?? true);
+        if (cancelled) return;
+        const row = data as { is_verified: boolean; is_available: boolean } | null;
+        setIsVerified(row?.is_verified ?? true);
+        if (row?.is_available) setIsOnline(true);
       });
+
+    supabase
+      .from("rides")
+      .select("*")
+      .eq("rider_id", profile.id)
+      .in("status", ["accepted", "en_route", "arrived", "in_progress"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled || !data) return;
+        const ride = data as Ride;
+        if (ride.status === "accepted") setIncomingRide(ride);
+        else setActiveRide(ride);
+      });
+
     return () => { cancelled = true; };
   }, [profile?.id, supabase]);
 
@@ -134,12 +155,16 @@ export default function RiderDashboard() {
     }
 
     return () => {
-      setAvailability(false);
+      // Intentionally NOT calling setAvailability(false) here: this cleanup
+      // runs on every client-side navigation, so forcing offline knocked the
+      // rider offline any time they visited another page. Going offline is now
+      // an explicit action (the Online/Offline toggle). Only stop the GPS
+      // watch on unmount.
       if (locationWatchRef.current != null) {
         navigator.geolocation.clearWatch(locationWatchRef.current);
       }
     };
-  }, [setAvailability, updateLocation]);
+  }, [updateLocation]);
 
   useEffect(() => {
     if (!profile?.id) return;

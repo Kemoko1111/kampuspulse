@@ -11,6 +11,7 @@ import {
   Clock, Bike, X, Send
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { apiFetch } from "@/lib/api-client";
 import { toast } from "react-hot-toast";
 import type { Ride, Profile } from "@/types";
 
@@ -128,9 +129,8 @@ export default function TrackPage() {
     if (!confirm("Are you sure you want to cancel this ride?")) return;
     setCancelling(true);
     try {
-      const res = await fetch(`/api/rides/${id}`, {
+      const res = await apiFetch(`/api/rides/${id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "cancelled" })
       });
       if (!res.ok) throw new Error("Failed to cancel");
@@ -146,14 +146,23 @@ export default function TrackPage() {
   const handlePay = async () => {
     setPaying(true);
     try {
-      const res = await fetch(`/api/rides/${id}/pay`, {
-        method: "POST",
-      });
-      const data = await res.json();
-      if (data.authorizationUrl) {
-        window.location.href = data.authorizationUrl;
+      const res = await apiFetch(`/api/rides/${id}/pay`, { method: "POST" });
+      const json = await res.json();
+      // The pay endpoint returns { data: payment }. payment is either a real
+      // Paystack init ({ authorization_url, reference, ... }) or the dev-mode
+      // object ({ reference, dev_mode, redirect_url }) which has already
+      // marked the ride paid. Read both correctly (the old code read a
+      // top-level camelCase `authorizationUrl` that never existed, so this
+      // button always failed).
+      const payment = json.data ?? {};
+      const url = payment.authorization_url || payment.redirect_url;
+      if (url) {
+        window.location.href = url;
+      } else if (payment.dev_mode) {
+        toast.success("Payment complete");
+        fetchRide();
       } else {
-        toast.error("Failed to initiate payment");
+        toast.error(json.error || "Failed to initiate payment");
       }
     } catch {
       toast.error("Payment failed");

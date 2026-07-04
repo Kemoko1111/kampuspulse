@@ -20,7 +20,7 @@ type RoomMessage = Pick<Message, "id" | "content" | "type" | "is_read" | "create
 type RoomFromApi = ChatRoom & { messages?: RoomMessage[] };
 
 interface ParticipantProfile {
-  user_id: string;
+  id: string;
   full_name: string;
   avatar_url?: string;
   role?: string;
@@ -39,7 +39,11 @@ function formatMessageTime(dateString: string) {
 }
 
 export default function MessagesPage() {
-  const { user } = useAuth();
+  // chat_rooms.participants and messages.sender_id both store the PROFILE id
+  // (not the auth user id) — using user.id here made every "other participant"
+  // lookup miss (→ "Unknown User"), counted your own messages as unread, and
+  // rendered your own messages as if the other person sent them.
+  const { profile } = useAuth();
   const [activeConvo, setActiveConvo] = useState<string | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [search, setSearch] = useState("");
@@ -74,10 +78,10 @@ export default function MessagesPage() {
   }, [fetchRooms]);
 
   useEffect(() => {
-    if (!user || rooms.length === 0) return;
+    if (!profile || rooms.length === 0) return;
 
     const otherIds = rooms
-      .map((room) => room.participants.find((p) => p !== user.id))
+      .map((room) => room.participants.find((p) => p !== profile.id))
       .filter((id): id is string => !!id);
 
     if (otherIds.length === 0) return;
@@ -85,24 +89,24 @@ export default function MessagesPage() {
     const supabase = createClient();
     supabase
       .from("profiles")
-      .select("user_id, full_name, avatar_url, role")
-      .in("user_id", [...new Set(otherIds)])
+      .select("id, full_name, avatar_url, role")
+      .in("id", [...new Set(otherIds)])
       .then(({ data }) => {
         if (data) {
           const map: Record<string, ParticipantProfile> = {};
-          (data as ParticipantProfile[]).forEach((p) => { map[p.user_id] = p; });
+          (data as ParticipantProfile[]).forEach((p) => { map[p.id] = p; });
           setParticipantMap(map);
         }
       });
-  }, [rooms, user]);
+  }, [rooms, profile]);
 
   const getOtherParticipant = useCallback(
     (room: RoomFromApi) => {
-      if (!user) return null;
-      const otherId = room.participants.find((p) => p !== user.id);
+      if (!profile) return null;
+      const otherId = room.participants.find((p) => p !== profile.id);
       return otherId ? participantMap[otherId] : null;
     },
-    [user, participantMap]
+    [profile, participantMap]
   );
 
   const getRoomMeta = useCallback(
@@ -116,7 +120,7 @@ export default function MessagesPage() {
       );
       const lastMsg = sortedMessages[0];
       const unread = (room.messages || []).filter(
-        (m) => !m.is_read && m.sender_id !== user?.id
+        (m) => !m.is_read && m.sender_id !== profile?.id
       ).length;
 
       return {
@@ -132,7 +136,7 @@ export default function MessagesPage() {
         unread,
       };
     },
-    [getOtherParticipant, user?.id]
+    [getOtherParticipant, profile?.id]
   );
 
   const filteredRooms = useMemo(() => {
@@ -315,7 +319,7 @@ export default function MessagesPage() {
                     </div>
                   ) : (
                     messages.map((msg, i) => {
-                      const isMe = msg.sender_id === user?.id;
+                      const isMe = msg.sender_id === profile?.id;
                       return (
                         <motion.div key={msg.id}
                           initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}

@@ -92,16 +92,19 @@ export default function EzzyRidePage() {
   useEffect(() => {
     if (!profile?.id) return;
     const fetchHistory = async () => {
+      // rides.rider_id FKs to profiles (not rider_profiles) — the old embed
+      // `rider:rider_profiles(profiles(full_name))` has no such relationship,
+      // so PostgREST errored and Recent Rides always showed empty.
       const { data } = await supabase
         .from('rides')
         .select(`
           id, pickup_address, destination_address, created_at, actual_fare, status,
-          rider:rider_profiles(profiles(full_name))
+          rider:profiles!rides_rider_id_fkey(full_name)
         `)
         .eq('passenger_id', profile.id)
         .order('created_at', { ascending: false })
         .limit(3);
-        
+
       if (data) {
         type RideHistoryRow = {
           pickup_address: string;
@@ -109,7 +112,7 @@ export default function EzzyRidePage() {
           created_at: string;
           actual_fare: number | null;
           status: string;
-          rider: { profiles: { full_name: string | null } | null } | null;
+          rider: { full_name: string | null } | null;
         };
         const formatted = (data as RideHistoryRow[]).map((r) => ({
           from: r.pickup_address,
@@ -117,7 +120,7 @@ export default function EzzyRidePage() {
           time: new Date(r.created_at).toLocaleDateString(),
           fare: r.actual_fare || 0,
           status: r.status,
-          rider: r.rider?.profiles?.full_name || 'Finding Rider...',
+          rider: r.rider?.full_name || 'Finding Rider...',
         }));
         setRecentRidesList(formatted);
       }

@@ -5,11 +5,17 @@ export async function GET() {
   try {
     const supabase = await createClient();
     
-    // Get count of online riders
+    // Count only riders who would ACTUALLY match a booking — same filters as
+    // RideRepository.findAvailableRiders (available + verified + has a known
+    // location). Counting is_available alone could show "3 riders online"
+    // while matchRider finds zero.
     const { count, error } = await supabase
       .from('rider_profiles')
       .select('*', { count: 'exact', head: true })
-      .eq('is_available', true);
+      .eq('is_available', true)
+      .eq('is_verified', true)
+      .not('current_lat', 'is', null)
+      .not('current_lng', 'is', null);
 
     if (error) throw error;
 
@@ -18,6 +24,9 @@ export async function GET() {
       .from('rider_profiles')
       .select('id, user_id, rating, total_trips, current_lat, current_lng, profiles!rider_profiles_user_id_fkey(full_name, avatar_url)')
       .eq('is_available', true)
+      .eq('is_verified', true)
+      .not('current_lat', 'is', null)
+      .not('current_lng', 'is', null)
       .limit(3);
 
     if (ridersError) throw ridersError;

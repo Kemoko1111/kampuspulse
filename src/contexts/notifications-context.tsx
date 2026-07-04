@@ -22,8 +22,13 @@ const NotificationsContext = createContext<NotificationsContextType | undefined>
 // (nav badges, home page, notifications page) must share one hook instance via
 // this context rather than each calling useRealtimeNotifications directly.
 export function NotificationsProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
-  const value = useRealtimeNotifications(user?.id ?? null);
+  const { profile } = useAuth();
+  // notifications.user_id stores the PROFILE id (not the auth user id), so the
+  // realtime filter inside the hook must key on profile.id — passing the auth
+  // id meant the INSERT filter never matched and live notifications/unread
+  // count never fired (only the server-side initial fetch, which is correct,
+  // ever populated anything).
+  const value = useRealtimeNotifications(profile?.id ?? null);
 
   return (
     <NotificationsContext.Provider value={value}>
