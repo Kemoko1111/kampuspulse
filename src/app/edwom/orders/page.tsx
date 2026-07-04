@@ -7,9 +7,12 @@ import { useMemo, useState } from "react";
 import {
   Package, Search, Clock,
   CheckCircle, Truck, XCircle, Star, MessageSquare,
-  Loader2,
+  Loader2, X, Send,
 } from "lucide-react";
+import { toast } from "react-hot-toast";
 import { useOrders } from "@/hooks/index";
+import { useAuth } from "@/contexts/auth-context";
+import { createClient } from "@/lib/supabase/client";
 import { formatDate } from "@/lib/utils";
 import type { Order, OrderItem } from "@/types";
 
@@ -29,10 +32,51 @@ const ACTIVE_STATUSES = ["pending", "confirmed", "processing", "shipped"];
 
 export default function OrdersPage() {
   const { orders, loading } = useOrders();
+  const { profile } = useAuth();
   const [activeTab, setActiveTab] = useState("All");
   const [search, setSearch] = useState("");
+  const [reviewOrder, setReviewOrder] = useState<Order | null>(null);
+  const [reviewProductId, setReviewProductId] = useState<string>("");
+  const [reviewRating, setReviewRating] = useState(0);
+  const [reviewComment, setReviewComment] = useState("");
+  const [submittingReview, setSubmittingReview] = useState(false);
 
   const orderList = orders as Order[];
+
+  const openReviewModal = (order: Order) => {
+    setReviewOrder(order);
+    setReviewProductId(order.items?.[0]?.product_id || "");
+    setReviewRating(0);
+    setReviewComment("");
+  };
+
+  const closeReviewModal = () => {
+    setReviewOrder(null);
+  };
+
+  const submitReview = async () => {
+    if (!reviewOrder || !reviewRating || !reviewProductId || !profile) return;
+    setSubmittingReview(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.from("reviews").insert({
+        reviewer_id: profile.id,
+        reviewed_id: reviewOrder.seller_id,
+        type: "product",
+        reference_id: reviewProductId,
+        rating: reviewRating,
+        comment: reviewComment || null,
+      } as never);
+
+      if (error) throw error;
+      toast.success("Thanks for your review!");
+      closeReviewModal();
+    } catch {
+      toast.error("Failed to submit review");
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
 
   const filtered = useMemo(() => orderList.filter(order => {
     const matchTab =
@@ -125,7 +169,8 @@ export default function OrdersPage() {
                       </div>
                       <div className="flex items-center gap-2">
                         {order.status === "delivered" && (
-                          <button className="flex items-center gap-1.5 text-xs text-yellow-400 glass border border-yellow-500/20 rounded-lg px-3 py-1.5 hover:bg-yellow-500/10 transition-all">
+                          <button onClick={() => openReviewModal(order)}
+                            className="flex items-center gap-1.5 text-xs text-yellow-400 glass border border-yellow-500/20 rounded-lg px-3 py-1.5 hover:bg-yellow-500/10 transition-all">
                             <Star className="w-3.5 h-3.5" /> Review
                           </button>
                         )}
@@ -143,6 +188,61 @@ export default function OrdersPage() {
                   </motion.div>
                 );
               })}
+            </div>
+          )}
+
+          {/* Review Modal */}
+          {reviewOrder && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+              <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                className="glass border border-white/10 rounded-3xl p-6 w-full max-w-sm shadow-2xl relative">
+                <button onClick={closeReviewModal} className="absolute top-4 right-4 text-muted-foreground hover:text-white">
+                  <X className="w-5 h-5" />
+                </button>
+                <div className="text-center mb-6">
+                  <div className="w-16 h-16 mx-auto bg-yellow-500/10 rounded-full flex items-center justify-center mb-3">
+                    <Star className="w-8 h-8 text-yellow-400" />
+                  </div>
+                  <h3 className="font-display font-bold text-2xl">Leave a Review</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    How was {(reviewOrder as Order & { seller?: { full_name?: string } }).seller?.full_name || "the seller"}&apos;s product?
+                  </p>
+                </div>
+
+                {(reviewOrder.items || []).length > 1 && (
+                  <div className="mb-4">
+                    <label className="text-xs text-muted-foreground uppercase tracking-wider font-bold">Which item?</label>
+                    <select value={reviewProductId} onChange={e => setReviewProductId(e.target.value)}
+                      className="w-full input-premium mt-1 text-sm">
+                      {(reviewOrder.items || []).map((item: OrderItem) => (
+                        <option key={item.product_id} value={item.product_id}>
+                          {item.product?.title || "Product"}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div className="flex justify-center gap-2 mb-6">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button key={star} onClick={() => setReviewRating(star)} className="focus:outline-none transition-transform hover:scale-110">
+                      <Star className={`w-10 h-10 ${reviewRating >= star ? "fill-yellow-400 text-yellow-400" : "text-white/20"}`} />
+                    </button>
+                  ))}
+                </div>
+
+                <textarea
+                  placeholder="Leave a comment (optional)"
+                  value={reviewComment}
+                  onChange={e => setReviewComment(e.target.value)}
+                  className="w-full input-premium h-24 mb-4 resize-none"
+                />
+
+                <button onClick={submitReview} disabled={!reviewRating || submittingReview}
+                  className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-yellow-600 to-yellow-500 text-white font-bold py-3.5 rounded-2xl hover:opacity-90 transition-opacity disabled:opacity-50">
+                  {submittingReview ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Submit Review
+                </button>
+              </motion.div>
             </div>
           )}
     </div>
