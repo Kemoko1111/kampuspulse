@@ -3,7 +3,8 @@
 import { motion } from "framer-motion";
 import Link from "next/link";
 import Image from "next/image";
-import { useState, useCallback, useRef } from "react";
+import { Suspense, useEffect, useState, useCallback, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Search, ShoppingCart, Heart,
   Star, Flame, Grid3X3, List,
@@ -32,15 +33,24 @@ const sortOptions = [
   { value: "views",      label: "Most Viewed" },
 ];
 
-export default function EdwomPage() {
+function EdwomPageContent() {
+  const searchParams = useSearchParams();
+  const initialSearch = searchParams.get("search") || "";
   const [activeCategory, setActiveCategory] = useState("all");
   const [viewMode, setViewMode]             = useState<"grid" | "list">("grid");
-  const [search, setSearch]                 = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [search, setSearch]                 = useState(initialSearch);
+  const [debouncedSearch, setDebouncedSearch] = useState(initialSearch);
   const [sort, setSort]                     = useState("created_at");
   const [wishlist, setWishlist]             = useState<string[]>([]);
   const { count: cartCount } = useCart();
   const { profile } = useAuth();
+
+  // Re-sync if the ?search= query param changes (e.g. navigating in from the home search bar)
+  useEffect(() => {
+    const paramSearch = searchParams.get("search") || "";
+    setSearch(paramSearch);
+    setDebouncedSearch(paramSearch);
+  }, [searchParams]);
 
   const { products, count, loading, error } = useProducts({
     category: activeCategory === "all" ? undefined : activeCategory,
@@ -239,5 +249,13 @@ export default function EdwomPage() {
         </motion.div>
       </div>
     </div>
+  );
+}
+
+export default function EdwomPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-blue-400" /></div>}>
+      <EdwomPageContent />
+    </Suspense>
   );
 }

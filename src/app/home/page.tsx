@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   ShoppingBag, Briefcase, Bike, ArrowRight,
@@ -60,12 +61,19 @@ const activityIcons: Record<string, { icon: React.ElementType; color: string }> 
 };
 
 export default function HomePage() {
+  const router = useRouter();
   const { profile, user } = useAuth();
   const { notifications, unreadCount } = useNotifications();
   const { orders } = useOrders();
   const [liveTasks, setLiveTasks] = useState(0);
   const [liveRides, setLiveRides] = useState(0);
+  const [homeSearch, setHomeSearch] = useState("");
   const supabase = createClient();
+
+  const runHomeSearch = () => {
+    const query = homeSearch.trim();
+    router.push(query ? `/edwom?search=${encodeURIComponent(query)}` : "/edwom");
+  };
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -130,8 +138,10 @@ export default function HomePage() {
 
           {/* Search */}
           <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input id="home-search" type="search"
+            <Search onClick={runHomeSearch} className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground cursor-pointer hover:text-foreground transition-colors" />
+            <input id="home-search" type="search" value={homeSearch}
+              onChange={e => setHomeSearch(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && runHomeSearch()}
               placeholder="Search products, tasks, or locations..."
               className="input-premium pl-11 pr-4 py-3.5 text-sm" />
           </div>
