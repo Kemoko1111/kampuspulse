@@ -9,6 +9,34 @@ import { formatCurrency } from "@/lib/utils";
 import { PageHeader } from "@/components/admin/page-header";
 import { StatCard } from "@/components/admin/stat-card";
 import { ChartCard } from "@/components/admin/chart-card";
+import { toCsv, downloadCsv, fetchAllPages } from "@/lib/csv";
+
+interface ExportOrder {
+  id: string;
+  total_amount: number;
+  status: string;
+  created_at: string;
+  buyer: { full_name: string } | null;
+}
+
+interface ExportUser {
+  id: string;
+  full_name: string;
+  email: string;
+  role: string;
+  status: string;
+  created_at: string;
+}
+
+interface ExportTransaction {
+  id: string;
+  reference: string;
+  amount: number;
+  type: string;
+  status: string;
+  created_at: string;
+  order?: { buyer?: { full_name: string } | null } | null;
+}
 
 export default function ReportsPage() {
   const [loading, setLoading] = useState(true);
@@ -20,6 +48,7 @@ export default function ReportsPage() {
     revenueByDay: {} as Record<string, number>,
   });
   const [dateRange, setDateRange] = useState("This Month");
+  const [exporting, setExporting] = useState<string | null>(null);
 
   const fetchMetrics = useCallback(async () => {
     setLoading(true);
@@ -42,8 +71,50 @@ export default function ReportsPage() {
 
   useEffect(() => { fetchMetrics(); }, [fetchMetrics]);
 
-  const handleExport = (type: string) => {
-    alert(`Exporting ${type} CSV feature is coming soon!`);
+  const handleExport = async (type: "Orders" | "Users" | "Transactions") => {
+    setExporting(type);
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+
+      if (type === "Orders") {
+        const orders = await fetchAllPages<ExportOrder>("/api/admin/orders", "orders");
+        const csv = toCsv(orders, [
+          { key: "id", label: "Order ID", value: (r) => r.id },
+          { key: "buyer", label: "Buyer", value: (r) => r.buyer?.full_name || "Unknown" },
+          { key: "total_amount", label: "Total (GHS)", value: (r) => r.total_amount },
+          { key: "status", label: "Status", value: (r) => r.status },
+          { key: "created_at", label: "Created At", value: (r) => r.created_at },
+        ]);
+        downloadCsv(`orders-${today}.csv`, csv);
+      } else if (type === "Users") {
+        const users = await fetchAllPages<ExportUser>("/api/admin/users", "data");
+        const csv = toCsv(users, [
+          { key: "full_name", label: "Name", value: (r) => r.full_name },
+          { key: "email", label: "Email", value: (r) => r.email },
+          { key: "role", label: "Role", value: (r) => r.role },
+          { key: "status", label: "Status", value: (r) => r.status },
+          { key: "created_at", label: "Created At", value: (r) => r.created_at },
+        ]);
+        downloadCsv(`users-${today}.csv`, csv);
+      } else {
+        const transactions = await fetchAllPages<ExportTransaction>("/api/admin/payments", "data");
+        const csv = toCsv(transactions, [
+          { key: "id", label: "Transaction ID", value: (r) => r.id },
+          { key: "reference", label: "Reference", value: (r) => r.reference },
+          { key: "user", label: "User", value: (r) => r.order?.buyer?.full_name || "—" },
+          { key: "amount", label: "Amount (GHS)", value: (r) => r.amount },
+          { key: "type", label: "Type", value: (r) => r.type },
+          { key: "status", label: "Status", value: (r) => r.status },
+          { key: "created_at", label: "Created At", value: (r) => r.created_at },
+        ]);
+        downloadCsv(`transactions-${today}.csv`, csv);
+      }
+    } catch (err) {
+      console.error(err);
+      alert(`Failed to export ${type} CSV. Please try again.`);
+    } finally {
+      setExporting(null);
+    }
   };
 
   const chartData = Object.entries(metrics.revenueByDay)
@@ -129,17 +200,17 @@ export default function ReportsPage() {
               <Download className="w-5 h-5 text-blue-400" /> Export Data
             </h3>
             <div className="space-y-3">
-              <button onClick={() => handleExport("Orders")} className="w-full flex items-center justify-between p-3 rounded-xl border border-white/10 hover:bg-white/5 transition-all text-left">
+              <button onClick={() => handleExport("Orders")} disabled={exporting !== null} className="w-full flex items-center justify-between p-3 rounded-xl border border-white/10 hover:bg-white/5 transition-all text-left disabled:opacity-50">
                 <span className="text-sm font-bold">Export Orders (CSV)</span>
-                <Download className="w-4 h-4 text-muted-foreground" />
+                {exporting === "Orders" ? <Loader2 className="w-4 h-4 text-muted-foreground animate-spin" /> : <Download className="w-4 h-4 text-muted-foreground" />}
               </button>
-              <button onClick={() => handleExport("Users")} className="w-full flex items-center justify-between p-3 rounded-xl border border-white/10 hover:bg-white/5 transition-all text-left">
+              <button onClick={() => handleExport("Users")} disabled={exporting !== null} className="w-full flex items-center justify-between p-3 rounded-xl border border-white/10 hover:bg-white/5 transition-all text-left disabled:opacity-50">
                 <span className="text-sm font-bold">Export Users (CSV)</span>
-                <Download className="w-4 h-4 text-muted-foreground" />
+                {exporting === "Users" ? <Loader2 className="w-4 h-4 text-muted-foreground animate-spin" /> : <Download className="w-4 h-4 text-muted-foreground" />}
               </button>
-              <button onClick={() => handleExport("Transactions")} className="w-full flex items-center justify-between p-3 rounded-xl border border-white/10 hover:bg-white/5 transition-all text-left">
+              <button onClick={() => handleExport("Transactions")} disabled={exporting !== null} className="w-full flex items-center justify-between p-3 rounded-xl border border-white/10 hover:bg-white/5 transition-all text-left disabled:opacity-50">
                 <span className="text-sm font-bold">Export Transactions (CSV)</span>
-                <Download className="w-4 h-4 text-muted-foreground" />
+                {exporting === "Transactions" ? <Loader2 className="w-4 h-4 text-muted-foreground animate-spin" /> : <Download className="w-4 h-4 text-muted-foreground" />}
               </button>
             </div>
           </div>
