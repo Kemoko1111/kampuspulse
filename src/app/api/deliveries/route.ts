@@ -3,55 +3,40 @@ import { handleApiError } from "@/lib/errors/app-error";
 import { requireProfile } from "@/lib/middleware/auth";
 import { validateCsrf } from "@/lib/middleware/csrf";
 import { createDeliverySchema } from "@/lib/validators/delivery";
-import { calculateFare, type FareSettings } from "@/lib/services/fare.service";
-
-const DEFAULT_DELIVERY_FARE: FareSettings = { base_fare: 8, per_km_rate: 3, per_min_rate: 0.75 };
+import { DeliveryService } from "@/lib/services/delivery.service";
 
 export async function POST(req: NextRequest) {
   try {
     await validateCsrf(req);
     const { supabase, profile } = await requireProfile();
-
     const body = createDeliverySchema.parse(await req.json());
 
-    const { data: settingsRow } = await supabase
-      .from("platform_settings")
-      .select("value")
-      .eq("key", "delivery_fare")
-      .single();
-    const settings = (settingsRow as { value: FareSettings } | null)?.value || DEFAULT_DELIVERY_FARE;
-    const estimatedFee = calculateFare(body.distanceKm, body.durationMinutes, settings);
-
-    const { data: delivery, error } = await supabase
-      .from("deliveries")
-      .insert({
-        sender_id: profile.id,
-        pickup_address: body.pickupAddress,
-        pickup_lat: body.pickupLat,
-        pickup_lng: body.pickupLng,
-        delivery_address: body.destinationAddress,
-        delivery_lat: body.destinationLat,
-        delivery_lng: body.destinationLng,
-        distance_km: body.distanceKm,
-        delivery_type: body.deliveryType,
-        package_description: body.packageDescription,
-        estimated_fee: estimatedFee,
-        status: "searching",
-      } as never)
-      .select()
-      .single();
-
-    if (error) {
-      console.error("Delivery insert error:", error);
-      throw new Error("Failed to create delivery request");
-    }
+    // Previously this route created the delivery row but never matched a
+    // rider, so it sat at 'searching' forever. DeliveryService now matches
+    // the nearest available rider (same logic as rides) and notifies them.
+    const service = new DeliveryService(supabase);
+    const { delivery, matchedRider } = await service.createDelivery(profile.id, {
+      pickupAddress: body.pickupAddress,
+      pickupLat: body.pickupLat,
+      pickupLng: body.pickupLng,
+      destinationAddress: body.destinationAddress,
+      destinationLat: body.destinationLat,
+      destinationLng: body.destinationLng,
+      distanceKm: body.distanceKm,
+      durationMinutes: body.durationMinutes,
+      deliveryType: body.deliveryType,
+      packageDescription: body.packageDescription,
+    });
 
     return NextResponse.json({
       success: true,
       data: {
         delivery,
-        message: "Delivery request created. Waiting for a rider."
-      }
+        matchedRider,
+        message: matchedRider
+          ? "Delivery request created. A rider is on the way."
+          : "Delivery request created. Searching for a rider…",
+      },
     });
   } catch (error) {
     return handleApiError(error);
