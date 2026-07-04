@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import NextImage from "next/image";
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import {
-  Send, Search, Phone, Video, MoreVertical,
+  Send, Search, Phone, Video,
   Image as ImageIcon, Smile, ArrowLeft, Loader2,
 } from "lucide-react";
 import { cn, formatRelativeTime, getInitials } from "@/lib/utils";
@@ -24,6 +24,7 @@ interface ParticipantProfile {
   full_name: string;
   avatar_url?: string;
   role?: string;
+  phone?: string;
 }
 
 function typeColor(type: string) {
@@ -108,7 +109,7 @@ export default function MessagesPage() {
     const supabase = createClient();
     supabase
       .from("profiles")
-      .select("id, full_name, avatar_url, role")
+      .select("id, full_name, avatar_url, role, phone")
       .in("id", [...new Set(otherIds)])
       .then(({ data }) => {
         if (data) {
@@ -166,6 +167,7 @@ export default function MessagesPage() {
 
   const activeConvoData = rooms.find((c) => c.id === activeConvo);
   const activeMeta = activeConvoData ? getRoomMeta(activeConvoData) : null;
+  const activeOther = activeConvoData ? getOtherParticipant(activeConvoData) : null;
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -319,14 +321,25 @@ export default function MessagesPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button className="w-8 h-8 rounded-lg glass border border-white/10 flex items-center justify-center hover:bg-white/10 transition-all">
-                      <Phone className="w-3.5 h-3.5" />
-                    </button>
-                    <button className="w-8 h-8 rounded-lg glass border border-white/10 flex items-center justify-center hover:bg-white/10 transition-all">
+                    {activeOther?.phone ? (
+                      <a href={`tel:${activeOther.phone}`}
+                        title={`Call ${activeOther.full_name}`}
+                        className="w-8 h-8 rounded-lg glass border border-white/10 flex items-center justify-center hover:bg-white/10 transition-all">
+                        <Phone className="w-3.5 h-3.5" />
+                      </a>
+                    ) : (
+                      <button
+                        onClick={() => toast("No phone number on file for this user")}
+                        title="No phone number available"
+                        className="w-8 h-8 rounded-lg glass border border-white/10 flex items-center justify-center opacity-50 hover:bg-white/10 transition-all">
+                        <Phone className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => toast("In-app video calling is coming soon")}
+                      title="Video call (coming soon)"
+                      className="w-8 h-8 rounded-lg glass border border-white/10 flex items-center justify-center hover:bg-white/10 transition-all">
                       <Video className="w-3.5 h-3.5" />
-                    </button>
-                    <button className="w-8 h-8 rounded-lg glass border border-white/10 flex items-center justify-center hover:bg-white/10 transition-all">
-                      <MoreVertical className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>

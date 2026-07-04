@@ -5,6 +5,8 @@ export { useWishlist } from "./useWishlist";
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { apiFetch } from "@/lib/api-client";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import type { Message, Notification, Product, Task, Order, Profile } from "@/types";
 
 export function useRealtimeMessages(roomId: string | null) {
@@ -12,6 +14,7 @@ export function useRealtimeMessages(roomId: string | null) {
   const [loading, setLoading] = useState(true);
   const [isTyping, setIsTyping] = useState(false);
   const typingTimeout = useRef<ReturnType<typeof setTimeout>>();
+  const channelRef = useRef<RealtimeChannel | null>(null);
   const supabase = createClient();
 
   const fetchMessages = useCallback(async () => {
@@ -65,8 +68,15 @@ export function useRealtimeMessages(roomId: string | null) {
       })
       .subscribe();
 
+    // Keep a handle on the SUBSCRIBED channel so sendTypingIndicator can
+    // broadcast on it. Previously it created a fresh, unsubscribed
+    // supabase.channel(...) per keystroke and called .send() on that, which
+    // never actually broadcasts — so "typing…" never reached the peer.
+    channelRef.current = channel;
+
     return () => {
       supabase.removeChannel(channel);
+      channelRef.current = null;
       clearTimeout(typingTimeout.current);
     };
   }, [roomId, fetchMessages, supabase]);
@@ -75,9 +85,11 @@ export function useRealtimeMessages(roomId: string | null) {
     async (content: string, type: "text" | "image" = "text") => {
       if (!roomId || !content.trim()) return;
 
-      const res = await fetch(`/api/messages/${roomId}`, {
+      // Must go through apiFetch: the POST route calls validateCsrf, and a
+      // raw fetch (no x-csrf-token header) was rejected with 403 every time —
+      // that's why messages silently failed to send.
+      const res = await apiFetch(`/api/messages/${roomId}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content: content.trim(), type }),
       });
 
@@ -88,15 +100,15 @@ export function useRealtimeMessages(roomId: string | null) {
 
   const sendTypingIndicator = useCallback(
     async (isTypingNow: boolean) => {
-      if (!roomId) return;
-      const channel = supabase.channel(`room:${roomId}`);
+      const channel = channelRef.current;
+      if (!channel) return;
       await channel.send({
         type: "broadcast",
         event: "typing",
         payload: { isTyping: isTypingNow },
       });
     },
-    [roomId, supabase]
+    []
   );
 
   return { messages, loading, isTyping, sendMessage, sendTypingIndicator, refetch: fetchMessages };
