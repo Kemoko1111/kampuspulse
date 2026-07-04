@@ -12,7 +12,17 @@ export async function POST(request: NextRequest) {
     .update(body)
     .digest("hex");
 
-  if (hash !== signature) {
+  // Plain !== leaks timing information proportional to how many leading
+  // characters match, in principle usable to guess the correct signature
+  // byte-by-byte. timingSafeEqual takes the same time regardless of where
+  // (or whether) the buffers differ.
+  const hashBuffer = Buffer.from(hash, "hex");
+  const signatureBuffer = Buffer.from(signature ?? "", "hex");
+  const signatureValid =
+    hashBuffer.length === signatureBuffer.length &&
+    crypto.timingSafeEqual(hashBuffer, signatureBuffer);
+
+  if (!signatureValid) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 
