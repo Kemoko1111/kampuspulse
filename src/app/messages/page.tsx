@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import NextImage from "next/image";
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import {
   Send, Search, Phone, Video, MoreVertical,
@@ -10,6 +11,8 @@ import { cn, formatRelativeTime, getInitials } from "@/lib/utils";
 import { useRealtimeMessages } from "@/hooks";
 import { useAuth } from "@/contexts/auth-context";
 import { createClient } from "@/lib/supabase/client";
+import { uploadFile } from "@/lib/api-client";
+import { toast } from "react-hot-toast";
 import type { ChatRoom, Message } from "@/types";
 
 type RoomMessage = Pick<Message, "id" | "content" | "type" | "is_read" | "created_at" | "sender_id">;
@@ -43,8 +46,10 @@ export default function MessagesPage() {
   const [rooms, setRooms] = useState<RoomFromApi[]>([]);
   const [roomsLoading, setRoomsLoading] = useState(true);
   const [participantMap, setParticipantMap] = useState<Record<string, ParticipantProfile>>({});
+  const [uploadingImage, setUploadingImage] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingDebounce = useRef<ReturnType<typeof setTimeout>>();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
     messages,
@@ -168,6 +173,42 @@ export default function MessagesPage() {
     }
   };
 
+  const handleImageButtonClick = () => {
+    if (!activeConvo || uploadingImage) return;
+    fileInputRef.current?.click();
+  };
+
+  const handleImageSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !activeConvo) return;
+
+    setUploadingImage(true);
+    try {
+      // NOTE: reusing the "product-images" bucket since it's the only public,
+      // generically-allowed image bucket in uploadSchema; task-attachments/
+      // rider-documents are private (RLS-gated) so their public URLs would
+      // 400 when rendered directly in the chat bubble. A dedicated
+      // "message-attachments" bucket would be the cleaner long-term fix.
+      const res = await uploadFile("product-images", file);
+      if (!res.ok) {
+        toast.error("Failed to upload image");
+        return;
+      }
+      const { data } = await res.json();
+      const ok = await sendMessage(data.url, "image");
+      if (ok) {
+        fetchRooms();
+      } else {
+        toast.error("Failed to send image");
+      }
+    } catch {
+      toast.error("Failed to upload image");
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   return (
     <div className="min-h-screen">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
@@ -285,7 +326,19 @@ export default function MessagesPage() {
                               ? "bg-blue-500 text-white rounded-br-sm"
                               : "glass border border-white/10 text-foreground rounded-bl-sm"
                           )}>
-                            <p className="text-sm">{msg.content}</p>
+                            {msg.type === "image" ? (
+                              <a href={msg.content} target="_blank" rel="noopener noreferrer" className="block">
+                                <NextImage
+                                  src={msg.content}
+                                  alt="Shared image"
+                                  width={220}
+                                  height={220}
+                                  className="rounded-xl object-cover max-w-full h-auto"
+                                />
+                              </a>
+                            ) : (
+                              <p className="text-sm">{msg.content}</p>
+                            )}
                             <p className={cn("text-[10px] mt-1", isMe ? "text-blue-200" : "text-muted-foreground")}>
                               {formatMessageTime(msg.created_at)}
                             </p>
@@ -308,8 +361,20 @@ export default function MessagesPage() {
 
                 <div className="p-4 border-t border-white/5">
                   <div className="flex items-center gap-2">
-                    <button className="w-9 h-9 rounded-xl glass border border-white/10 flex items-center justify-center hover:bg-white/10 transition-all flex-shrink-0">
-                      <ImageIcon className="w-4 h-4 text-muted-foreground" />
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      onChange={handleImageSelected}
+                      className="hidden"
+                    />
+                    <button onClick={handleImageButtonClick} disabled={uploadingImage}
+                      className="w-9 h-9 rounded-xl glass border border-white/10 flex items-center justify-center hover:bg-white/10 transition-all flex-shrink-0 disabled:opacity-50">
+                      {uploadingImage ? (
+                        <Loader2 className="w-4 h-4 text-muted-foreground animate-spin" />
+                      ) : (
+                        <ImageIcon className="w-4 h-4 text-muted-foreground" />
+                      )}
                     </button>
                     <button className="w-9 h-9 rounded-xl glass border border-white/10 flex items-center justify-center hover:bg-white/10 transition-all flex-shrink-0">
                       <Smile className="w-4 h-4 text-muted-foreground" />
