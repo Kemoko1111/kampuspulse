@@ -175,7 +175,7 @@ export default function OrdersPage() {
                           </button>
                         )}
                         {ACTIVE_STATUSES.includes(order.status) && order.status !== "pending" && (
-                          <Link href={`/ezzyride/track/${order.id}`}
+                          <Link href={`/edwom/orders/${order.id}`}
                             className="flex items-center gap-1.5 text-xs text-blue-400 glass border border-blue-500/20 rounded-lg px-3 py-1.5 hover:bg-blue-500/10 transition-all">
                             <Truck className="w-3.5 h-3.5" /> Track
                           </Link>
