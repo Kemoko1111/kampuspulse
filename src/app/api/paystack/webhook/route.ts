@@ -61,6 +61,15 @@ export async function POST(request: NextRequest) {
         .update({ payment_status: "paid", status: "confirmed", payment_reference: reference })
         .eq("id", orderId);
 
+      // Order paid → dispatch a rider to deliver it (idempotent, so a repeated
+      // webhook won't create a second delivery). Best-effort.
+      try {
+        const { DeliveryService } = await import("@/lib/services/delivery.service");
+        await new DeliveryService(supabase as never).dispatchForOrder(orderId);
+      } catch (e) {
+        console.error("Order delivery dispatch failed:", e);
+      }
+
       const { data: order } = await supabase
         .from("orders")
         .select("buyer_id, seller_id, total_amount")

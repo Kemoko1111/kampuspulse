@@ -25,7 +25,13 @@ interface DeliveryRow {
   estimated_fee: number | null;
   pickup_lat: number | null;
   pickup_lng: number | null;
+  order_id: string | null;
 }
+
+// Everything at UCC is within a small radius, so approximate campus-center
+// coords are good enough for rider matching (findNearestRider) and the map;
+// the rider navigates by the human-readable pickup/drop-off addresses.
+const CAMPUS_CENTER = { lat: 5.1053, lng: -1.2825 };
 
 export class DeliveryService {
   private rideRepo: RideRepository;
@@ -112,6 +118,61 @@ export class DeliveryService {
     return nearest;
   }
 
+  // Bridge from EDWOM: when an order is paid, create a delivery (seller ->
+  // buyer) and dispatch the nearest rider. Idempotent — a repeated call (e.g.
+  // the Paystack webhook firing twice) won't create a second delivery for the
+  // same order.
+  async dispatchForOrder(orderId: string): Promise<void> {
+    const { data: existing } = await this.supabase
+      .from("deliveries")
+      .select("id")
+      .eq("order_id", orderId)
+      .maybeSingle();
+    if (existing) return;
+
+    const { data: orderRow } = await this.supabase
+      .from("orders")
+      .select("id, buyer_id, seller_id, delivery_address, delivery_fee")
+      .eq("id", orderId)
+      .single();
+    const order = orderRow as {
+      id: string; buyer_id: string; seller_id: string;
+      delivery_address: string | null; delivery_fee: number | null;
+    } | null;
+    if (!order) return;
+
+    // Best-effort human-readable pickup address from the seller's profile.
+    const { data: sellerRow } = await this.supabase
+      .from("profiles")
+      .select("full_name, hall_of_residence")
+      .eq("id", order.seller_id)
+      .single();
+    const seller = sellerRow as { full_name: string | null; hall_of_residence: string | null } | null;
+    const pickupAddress = seller?.hall_of_residence
+      ? `${seller.full_name || "Seller"} — ${seller.hall_of_residence}`
+      : `${seller?.full_name || "Seller"} (pickup)`;
+
+    // sender_id = buyer so the buyer can track it (deliveries_select RLS is
+    // sender or rider) and the order-tracking page can read it.
+    const { data: delivery, error } = await this.rideRepo.createDelivery({
+      order_id: order.id,
+      sender_id: order.buyer_id,
+      delivery_type: "marketplace",
+      pickup_address: pickupAddress,
+      pickup_lat: CAMPUS_CENTER.lat,
+      pickup_lng: CAMPUS_CENTER.lng,
+      delivery_address: order.delivery_address || "Buyer address",
+      delivery_lat: CAMPUS_CENTER.lat,
+      delivery_lng: CAMPUS_CENTER.lng,
+      distance_km: 2,
+      estimated_fee: order.delivery_fee ?? 5,
+      status: "searching",
+    });
+    if (error || !delivery) return;
+
+    await this.matchRider((delivery as { id: string }).id, CAMPUS_CENTER.lat, CAMPUS_CENTER.lng);
+  }
+
   async updateDeliveryStatus(deliveryId: string, profileId: string, status: string) {
     const { data: raw, error } = await this.rideRepo.findDeliveryById(deliveryId);
     const delivery = raw as DeliveryRow | null;
@@ -142,6 +203,23 @@ export class DeliveryService {
 
     const { data, error: updateError } = await this.rideRepo.updateDelivery(deliveryId, updates);
     if (updateError) throw updateError;
+
+    // If this delivery is fulfilling an EDWOM order, mirror the rider's
+    // progress onto the order so the buyer's order-tracking timeline stays in
+    // sync. Only uses order statuses allowed by the DB CHECK constraint
+    // (…, processing, shipped, delivered, …).
+    if (delivery.order_id) {
+      const orderStatus =
+        status === "en_route" ? "processing" :
+        status === "picked_up" ? "shipped" :
+        status === "delivered" ? "delivered" : null;
+      if (orderStatus) {
+        await this.supabase
+          .from("orders")
+          .update({ status: orderStatus } as never)
+          .eq("id", delivery.order_id);
+      }
+    }
 
     const notifyId = isSender ? delivery.rider_id : delivery.sender_id;
     if (notifyId) {

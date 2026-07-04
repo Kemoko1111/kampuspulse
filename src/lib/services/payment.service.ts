@@ -55,6 +55,15 @@ export class PaymentService {
           payment_reference: reference,
         } as never)
         .eq("id", params.orderId);
+
+      // Order is paid → dispatch a rider to deliver it (seller → buyer).
+      // Best-effort: a matching/dispatch hiccup must not fail the payment.
+      try {
+        const { DeliveryService } = await import("@/lib/services/delivery.service");
+        await new DeliveryService(this.supabase).dispatchForOrder(params.orderId);
+      } catch (e) {
+        console.error("Order delivery dispatch failed:", e);
+      }
     }
 
     if (params.taskId) {

@@ -3,14 +3,31 @@
 import { motion } from "framer-motion";
 import Link from "next/link";
 import Image from "next/image";
-import { use } from "react";
+import { use, useEffect, useState } from "react";
 import {
   ArrowLeft, Package, Clock, CheckCircle, Truck, XCircle,
-  Loader2, MapPin, Home,
+  Loader2, MapPin, Home, Bike, MessageSquare,
 } from "lucide-react";
 import { useOrders } from "@/hooks/index";
+import { createClient } from "@/lib/supabase/client";
 import { formatDate } from "@/lib/utils";
 import type { Order, OrderItem } from "@/types";
+
+interface OrderDelivery {
+  id: string;
+  status: string;
+  rider_id: string | null;
+  rider?: { full_name: string | null; phone: string | null } | null;
+}
+
+const DELIVERY_STATUS_LABEL: Record<string, string> = {
+  searching: "Finding a rider…",
+  accepted: "Rider assigned",
+  en_route: "Rider heading to pickup",
+  picked_up: "Picked up — on the way to you",
+  delivered: "Delivered",
+  cancelled: "Delivery cancelled",
+};
 
 // Delivery happy-path lifecycle. An order (a marketplace purchase) is NOT a
 // ride — the old "Track" button pointed at /ezzyride/track/<orderId>, which
@@ -26,8 +43,36 @@ const STEPS = [
 export default function OrderTrackingPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { orders, loading } = useOrders();
+  const [delivery, setDelivery] = useState<OrderDelivery | null>(null);
 
   const order = (orders as Order[]).find((o) => o.id === id) || null;
+
+  // Fetch (and live-subscribe to) the rider delivery dispatched for this order.
+  // RLS lets the buyer read it (deliveries_select: sender or rider; the buyer
+  // is the sender). Shows who's delivering + their progress.
+  useEffect(() => {
+    const supabase = createClient();
+    let active = true;
+
+    const load = () => {
+      supabase
+        .from("deliveries")
+        .select("id, status, rider_id, rider:profiles!deliveries_rider_id_fkey(full_name, phone)")
+        .eq("order_id", id)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (active) setDelivery(data as OrderDelivery | null);
+        });
+    };
+    load();
+
+    const channel = supabase
+      .channel(`order-delivery:${id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "deliveries", filter: `order_id=eq.${id}` }, load)
+      .subscribe();
+
+    return () => { active = false; supabase.removeChannel(channel); };
+  }, [id]);
 
   if (loading) {
     return (
@@ -122,6 +167,38 @@ export default function OrderTrackingPage({ params }: { params: Promise<{ id: st
             })}
           </div>
         </motion.div>
+      )}
+
+      {delivery && !isCancelled && (
+        <div className="glass-card p-5">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center justify-center flex-shrink-0">
+              <Bike className="w-5 h-5 text-blue-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold">
+                {delivery.rider?.full_name || (delivery.status === "searching" ? "Finding a rider…" : "Rider")}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {DELIVERY_STATUS_LABEL[delivery.status] || delivery.status}
+              </p>
+            </div>
+            {delivery.rider_id && delivery.status !== "delivered" && (
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {delivery.rider?.phone && (
+                  <a href={`tel:${delivery.rider.phone}`}
+                    className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-all">
+                    <Truck className="w-4 h-4" />
+                  </a>
+                )}
+                <Link href={`/messages?user=${delivery.rider_id}`}
+                  className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-all">
+                  <MessageSquare className="w-4 h-4" />
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {order.delivery_address && (
