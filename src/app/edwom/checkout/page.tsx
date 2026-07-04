@@ -42,6 +42,7 @@ export default function CheckoutPage() {
   const [step, setStep] = useState(0);
   const [payMethod, setPayMethod] = useState("mtn");
   const [phone, setPhone] = useState("");
+  const [momoNumber, setMomoNumber] = useState("");
   const [address, setAddress] = useState("");
   const [hall, setHall] = useState("");
   const [processing, setProcessing] = useState(false);
@@ -67,6 +68,7 @@ export default function CheckoutPage() {
         body: JSON.stringify({
           deliveryAddress,
           paymentMethod: selectedMethod?.apiId || "mtn_momo",
+          phone: momoNumber || phone,
         }),
       });
 
@@ -209,7 +211,7 @@ export default function CheckoutPage() {
                       </label>
                       <div className="relative">
                         <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                        <input id="momo-number" type="tel"
+                        <input id="momo-number" type="tel" value={momoNumber} onChange={e => setMomoNumber(e.target.value)}
                           placeholder={paymentMethods.find(p => p.id === payMethod)?.placeholder}
                           className="input-premium pl-9" />
                       </div>
