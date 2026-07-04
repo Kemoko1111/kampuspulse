@@ -33,7 +33,28 @@ export class RideRepository {
       .not("current_lng", "is", null);
   }
 
+  // Neither the new-user signup trigger nor the admin-panel "promote to
+  // rider" path (PATCH /api/admin/users/[id]) ever inserts a rider_profiles
+  // row — both only touch profiles.role. Without this, a rider's very first
+  // "go online" or location update fails outright (update matches zero rows,
+  // .single() throws). Ensuring the row exists here, rather than chasing
+  // every place role could become "rider", is what actually closes the gap.
+  private async ensureRiderProfile(profileId: string) {
+    const { data } = await this.supabase
+      .from("rider_profiles")
+      .select("id")
+      .eq("user_id", profileId)
+      .maybeSingle();
+
+    if (!data) {
+      await this.supabase
+        .from("rider_profiles")
+        .insert({ user_id: profileId, vehicle_type: "motorbike" } as never);
+    }
+  }
+
   async updateRiderLocation(profileId: string, lat: number, lng: number) {
+    await this.ensureRiderProfile(profileId);
     return this.supabase
       .from("rider_profiles")
       .update({ current_lat: lat, current_lng: lng } as never)
@@ -43,6 +64,7 @@ export class RideRepository {
   }
 
   async updateRiderAvailability(profileId: string, isAvailable: boolean) {
+    await this.ensureRiderProfile(profileId);
     return this.supabase
       .from("rider_profiles")
       .update({ is_available: isAvailable } as never)
