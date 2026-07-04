@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { apiFetch } from "@/lib/api-client";
 import { useAuth } from "@/contexts/auth-context";
+import { toast } from "react-hot-toast";
 import type { Task, TaskApplication, Profile } from "@/types";
 
 type TaskWithRelations = Task & {
@@ -73,6 +74,20 @@ export default function TaskDetailPage() {
   }, [id, profile?.id]);
 
   useEffect(() => { fetchTask(); }, [fetchTask]);
+
+  const handleShareTask = async () => {
+    if (!task) return;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: task.title, url: window.location.href });
+      } catch {
+        // user cancelled the share sheet — no-op
+      }
+    } else {
+      await navigator.clipboard.writeText(window.location.href);
+      toast.success("Link copied to clipboard");
+    }
+  };
 
   const handleApply = async () => {
     if (!id || !message) return;
@@ -364,7 +379,7 @@ export default function TaskDetailPage() {
               </Link>
             </motion.div>
             <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.15 }} className="glass-card p-5 space-y-2">
-              <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 transition-all text-sm text-muted-foreground">
+              <button onClick={handleShareTask} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 transition-all text-sm text-muted-foreground">
                 <Share2 className="w-4 h-4" /> Share Task
               </button>
               <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-red-500/10 transition-all text-sm text-red-400">

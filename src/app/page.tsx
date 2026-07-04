@@ -473,14 +473,18 @@ export default function LandingPage() {
               © 2025 KampusPulse. Built with ❤️ for University of Cape Coast students.
             </p>
             <div className="flex gap-6">
-              {["Privacy", "Terms", "Support"].map((link) => (
-                <a
-                  key={link}
-                  href="#"
+              {[
+                { label: "Privacy", href: "/privacy" },
+                { label: "Terms", href: "/terms" },
+                { label: "Support", href: "/support" },
+              ].map((link) => (
+                <Link
+                  key={link.label}
+                  href={link.href}
                   className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  {link}
-                </a>
+                  {link.label}
+                </Link>
               ))}
             </div>
           </div>

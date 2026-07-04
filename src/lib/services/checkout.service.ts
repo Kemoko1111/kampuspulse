@@ -20,7 +20,8 @@ export class CheckoutService {
     email: string,
     deliveryAddress: string,
     notes?: string,
-    paymentMethod = "mtn_momo"
+    paymentMethod = "mtn_momo",
+    phone?: string
   ) {
     const { data: rawCartItems, error: cartError } = await this.cartRepo.findByUser(profileId);
     if (cartError) throw cartError;
@@ -91,6 +92,7 @@ export class CheckoutService {
       profileId,
       orderId: order.id,
       paymentMethod,
+      phone,
     });
 
     return { order, payment };

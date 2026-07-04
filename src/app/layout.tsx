@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Outfit } from "next/font/google";
+import { Toaster } from "react-hot-toast";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { AuthProvider } from "@/contexts/auth-context";
 import { NotificationsProvider } from "@/contexts/notifications-context";
@@ -62,6 +63,7 @@ export default function RootLayout({
           <AuthProvider>
             <NotificationsProvider>
               {children}
+              <Toaster position="top-center" toastOptions={{ duration: 3000 }} />
             </NotificationsProvider>
           </AuthProvider>
         </ThemeProvider>

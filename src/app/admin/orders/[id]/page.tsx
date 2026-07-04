@@ -7,7 +7,8 @@ import Link from "next/link";
 import {
   ArrowLeft, Package, User, CreditCard,
   MapPin, FileText, Loader2, CheckCircle,
-  XCircle, ChefHat, Bike, Check,
+  XCircle, ChefHat, Bike, Check, Undo2,
+  AlertCircle,
   type LucideIcon,
 } from "lucide-react";
 import { formatCurrency, formatRelativeTime } from "@/lib/utils";
@@ -23,9 +24,11 @@ interface OrderDetail {
   status: string;
   payment_method: string;
   payment_status: string;
+  payment_reference?: string;
   delivery_address: string;
   notes: string;
   created_at: string;
+  transaction?: { id: string; amount: number; status: string } | null;
   buyer: {
     id: string;
     full_name: string;
@@ -70,13 +73,21 @@ export default function OrderDetailPage() {
     variant: "default" | "danger";
   } | null>(null);
 
+  const [refundAmount, setRefundAmount] = useState("");
+  const [refundReason, setRefundReason] = useState("");
+  const [refundConfirmOpen, setRefundConfirmOpen] = useState(false);
+  const [refundLoading, setRefundLoading] = useState(false);
+  const [refundResult, setRefundResult] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
   const fetchOrder = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch(`/api/admin/orders/${orderId}`);
       if (res.ok) {
         const data = await res.json();
-        setOrder(data.order || data);
+        const fetchedOrder = (data.order || data) as OrderDetail;
+        setOrder(fetchedOrder);
+        setRefundAmount(String(fetchedOrder.transaction?.amount ?? fetchedOrder.total_amount ?? ""));
       }
     } finally {
       setLoading(false);
@@ -102,6 +113,31 @@ export default function OrderDetailPage() {
       console.error(err);
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleRefund = async () => {
+    if (!order?.transaction) return;
+    setRefundLoading(true);
+    setRefundResult(null);
+    try {
+      const res = await apiFetch("/api/paystack/refund", {
+        method: "POST",
+        body: JSON.stringify({
+          transactionId: order.transaction.id,
+          amount: parseFloat(refundAmount),
+          reason: refundReason || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Refund failed");
+      setRefundResult({ type: "success", message: "Refund initiated successfully." });
+      setRefundConfirmOpen(false);
+      fetchOrder();
+    } catch (err) {
+      setRefundResult({ type: "error", message: err instanceof Error ? err.message : "Refund failed" });
+    } finally {
+      setRefundLoading(false);
     }
   };
 
@@ -334,6 +370,52 @@ export default function OrderDetailPage() {
         </motion.div>
       )}
 
+      {/* Refund */}
+      {order.payment_status === "paid" && order.transaction && order.transaction.status === "success" && (
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="glass-card p-6 space-y-4">
+          <h3 className="font-display font-bold text-lg flex items-center gap-2">
+            <Undo2 className="w-5 h-5 text-orange-400" /> Refund
+          </h3>
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground block mb-1.5">Amount (GHS)</label>
+              <input
+                type="number"
+                min="0"
+                max={order.transaction.amount}
+                step="0.01"
+                value={refundAmount}
+                onChange={(e) => setRefundAmount(e.target.value)}
+                className="input-premium"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground block mb-1.5">Reason (optional)</label>
+              <input
+                type="text"
+                value={refundReason}
+                onChange={(e) => setRefundReason(e.target.value)}
+                placeholder="e.g. Item not delivered"
+                className="input-premium"
+              />
+            </div>
+          </div>
+          <button
+            onClick={() => { setRefundResult(null); setRefundConfirmOpen(true); }}
+            disabled={!refundAmount || parseFloat(refundAmount) <= 0}
+            className="px-6 py-3 rounded-xl border border-orange-500/30 text-orange-400 hover:bg-orange-500/10 transition-all flex items-center gap-2 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Undo2 className="w-4 h-4" /> Refund Order
+          </button>
+          {refundResult && (
+            <p className={`text-sm flex items-center gap-1.5 ${refundResult.type === "success" ? "text-green-400" : "text-red-400"}`}>
+              {refundResult.type === "success" ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+              {refundResult.message}
+            </p>
+          )}
+        </motion.div>
+      )}
+
       {/* Confirm Modal */}
       {confirmModal && (
         <ConfirmModal
@@ -347,6 +429,18 @@ export default function OrderDetailPage() {
           loading={actionLoading}
         />
       )}
+
+      {/* Refund Confirm Modal */}
+      <ConfirmModal
+        isOpen={refundConfirmOpen}
+        onClose={() => setRefundConfirmOpen(false)}
+        onConfirm={handleRefund}
+        title="Refund Order"
+        message={`Refund GHS ${refundAmount || "0"} to the customer${refundReason ? ` (reason: "${refundReason}")` : ""}? This calls Paystack directly and cannot be undone.`}
+        confirmLabel="Refund"
+        variant="danger"
+        loading={refundLoading}
+      />
     </div>
   );
 }
