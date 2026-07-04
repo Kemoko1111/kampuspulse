@@ -3,7 +3,15 @@ import type { TypedSupabaseClient } from "@/lib/supabase/types";
 export class TaskRepository {
   constructor(private supabase: TypedSupabaseClient) {}
 
-  async findMany(params: { category?: string; search?: string; urgent?: boolean; limit: number; offset: number }) {
+  async findMany(params: {
+    category?: string;
+    search?: string;
+    urgent?: boolean;
+    minReward?: number;
+    maxReward?: number;
+    limit: number;
+    offset: number;
+  }) {
     let query = this.supabase
       .from("tasks")
       .select(`*, poster:profiles!tasks_poster_id_fkey(id, full_name, avatar_url, rating)`, { count: "exact" })
@@ -13,6 +21,8 @@ export class TaskRepository {
     if (params.category) query = query.eq("category", params.category);
     if (params.search) query = query.or(`title.ilike.%${params.search}%,description.ilike.%${params.search}%`);
     if (params.urgent) query = query.eq("is_urgent", true);
+    if (params.minReward !== undefined) query = query.gte("reward", params.minReward);
+    if (params.maxReward !== undefined) query = query.lte("reward", params.maxReward);
 
     return query
       .order("created_at", { ascending: false })

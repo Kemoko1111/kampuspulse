@@ -17,13 +17,25 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get("category") || undefined;
     const search = searchParams.get("search") || undefined;
     const urgent = searchParams.get("urgent") === "true";
+    const minRewardParam = searchParams.get("minReward");
+    const maxRewardParam = searchParams.get("maxReward");
+    const minReward = minRewardParam ? Number(minRewardParam) : undefined;
+    const maxReward = maxRewardParam ? Number(maxRewardParam) : undefined;
     const limit = parseInt(searchParams.get("limit") || "20");
     const page = parseInt(searchParams.get("page") || "1");
     const offset = (page - 1) * limit;
 
     const supabase = await (await import("@/lib/supabase/server")).createClient();
     const repo = new TaskRepository(supabase);
-    const { data, error, count } = await repo.findMany({ category, search, urgent, limit, offset });
+    const { data, error, count } = await repo.findMany({
+      category,
+      search,
+      urgent,
+      minReward: minReward !== undefined && !Number.isNaN(minReward) ? minReward : undefined,
+      maxReward: maxReward !== undefined && !Number.isNaN(maxReward) ? maxReward : undefined,
+      limit,
+      offset,
+    });
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ data, count, page, limit });

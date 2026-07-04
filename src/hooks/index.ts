@@ -214,6 +214,8 @@ export function useTasks(filters?: {
   category?: string;
   search?: string;
   urgent?: boolean;
+  minReward?: number;
+  maxReward?: number;
 }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [count, setCount] = useState(0);
@@ -225,6 +227,8 @@ export function useTasks(filters?: {
     if (filters?.category) params.set("category", filters.category);
     if (filters?.search) params.set("search", filters.search);
     if (filters?.urgent) params.set("urgent", "true");
+    if (filters?.minReward !== undefined) params.set("minReward", String(filters.minReward));
+    if (filters?.maxReward !== undefined) params.set("maxReward", String(filters.maxReward));
 
     const res = await fetch(`/api/tasks?${params}`);
     if (res.ok) {
@@ -233,7 +237,7 @@ export function useTasks(filters?: {
       setCount(total || 0);
     }
     setLoading(false);
-  }, [filters?.category, filters?.search, filters?.urgent]);
+  }, [filters?.category, filters?.search, filters?.urgent, filters?.minReward, filters?.maxReward]);
 
   useEffect(() => {
     fetchTasks();

@@ -28,12 +28,36 @@ export default function Y3AdwumaPage() {
   const [search, setSearch]                 = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [urgentOnly, setUrgentOnly]         = useState(false);
+  const [showFilters, setShowFilters]       = useState(false);
+  const [minReward, setMinReward]           = useState("");
+  const [maxReward, setMaxReward]           = useState("");
+  const [appliedMinReward, setAppliedMinReward] = useState<number | undefined>(undefined);
+  const [appliedMaxReward, setAppliedMaxReward] = useState<number | undefined>(undefined);
 
   const { tasks, count, loading } = useTasks({
     category: activeCategory === "all" ? undefined : activeCategory,
     search: debouncedSearch || undefined,
     urgent: urgentOnly || undefined,
+    minReward: appliedMinReward,
+    maxReward: appliedMaxReward,
   });
+
+  const activeFilterCount = (appliedMinReward !== undefined ? 1 : 0) + (appliedMaxReward !== undefined ? 1 : 0);
+
+  const applyRewardFilter = useCallback(() => {
+    const min = minReward.trim() ? Number(minReward) : undefined;
+    const max = maxReward.trim() ? Number(maxReward) : undefined;
+    setAppliedMinReward(min !== undefined && !Number.isNaN(min) ? min : undefined);
+    setAppliedMaxReward(max !== undefined && !Number.isNaN(max) ? max : undefined);
+    setShowFilters(false);
+  }, [minReward, maxReward]);
+
+  const clearRewardFilter = useCallback(() => {
+    setMinReward("");
+    setMaxReward("");
+    setAppliedMinReward(undefined);
+    setAppliedMaxReward(undefined);
+  }, []);
 
   const searchTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const handleSearch = useCallback((val: string) => {
@@ -94,7 +118,7 @@ export default function Y3AdwumaPage() {
         </motion.div>
 
         {/* ── SEARCH + FILTERS ── */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }} className="flex gap-2">
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }} className="relative flex gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input id="task-search" type="search" value={search} onChange={e => handleSearch(e.target.value)}
@@ -105,9 +129,47 @@ export default function Y3AdwumaPage() {
             title="Urgent only">
             <Flame className="w-4 h-4" />
           </button>
-          <button className="w-12 h-12 glass border border-white/10 rounded-xl flex items-center justify-center hover:bg-white/10 transition-all">
-            <Filter className="w-4 h-4" />
-          </button>
+          <div className="relative">
+            <button id="task-filter-btn" onClick={() => setShowFilters(s => !s)}
+              className={`relative w-12 h-12 rounded-xl flex items-center justify-center transition-all ${showFilters || activeFilterCount > 0 ? "bg-emerald-500 text-white" : "glass border border-white/10 text-muted-foreground hover:bg-white/10"}`}
+              title="Filter by reward">
+              <Filter className="w-4 h-4" />
+              {activeFilterCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
+
+            {showFilters && (
+              <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+                className="absolute right-0 top-full mt-2 z-20 w-72 glass-card p-4 shadow-lg">
+                <h4 className="font-display font-bold text-sm mb-3">Filter by Reward</h4>
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="flex-1">
+                    <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Min (GHS)</label>
+                    <input type="number" min={0} value={minReward} onChange={e => setMinReward(e.target.value)}
+                      placeholder="0" className="input-premium mt-1 text-sm" />
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Max (GHS)</label>
+                    <input type="number" min={0} value={maxReward} onChange={e => setMaxReward(e.target.value)}
+                      placeholder="Any" className="input-premium mt-1 text-sm" />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={clearRewardFilter}
+                    className="flex-1 text-xs font-semibold text-muted-foreground hover:text-foreground glass border border-white/10 rounded-xl px-3 py-2 transition-all">
+                    Clear
+                  </button>
+                  <button onClick={applyRewardFilter}
+                    className="flex-1 text-xs font-semibold text-white bg-emerald-500 hover:bg-emerald-600 rounded-xl px-3 py-2 transition-all">
+                    Apply
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </div>
         </motion.div>
 
         {/* ── CATEGORIES ── */}

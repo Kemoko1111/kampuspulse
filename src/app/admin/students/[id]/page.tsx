@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import {
@@ -14,6 +14,15 @@ import { PageHeader } from "@/components/admin/page-header";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { ConfirmModal } from "@/components/admin/confirm-modal";
 import { StatCard } from "@/components/admin/stat-card";
+import { DataTable } from "@/components/admin/data-table";
+
+interface StudentOrder {
+  id: string;
+  total_amount: number;
+  status: string;
+  created_at: string;
+  seller: { full_name: string } | null;
+}
 
 interface StudentDetail {
   id: string;
@@ -31,11 +40,16 @@ interface StudentDetail {
 
 export default function StudentDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const studentId = params.id as string;
 
   const [student, setStudent] = useState<StudentDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [studentOrders, setStudentOrders] = useState<StudentOrder[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(true);
+  const [ordersPage, setOrdersPage] = useState(1);
+  const [ordersTotalPages, setOrdersTotalPages] = useState(1);
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
     action: "suspend" | "ban" | "activate";
@@ -58,6 +72,23 @@ export default function StudentDetailPage() {
   }, [studentId]);
 
   useEffect(() => { fetchStudent(); }, [fetchStudent]);
+
+  const fetchStudentOrders = useCallback(async () => {
+    setOrdersLoading(true);
+    try {
+      const params = new URLSearchParams({ buyerId: studentId, page: String(ordersPage), limit: "10" });
+      const res = await fetch(`/api/admin/orders?${params}`);
+      if (res.ok) {
+        const data = await res.json();
+        setStudentOrders(data.orders || []);
+        setOrdersTotalPages(data.totalPages || 1);
+      }
+    } finally {
+      setOrdersLoading(false);
+    }
+  }, [studentId, ordersPage]);
+
+  useEffect(() => { fetchStudentOrders(); }, [fetchStudentOrders]);
 
   const handleStatusUpdate = async () => {
     if (!confirmModal) return;
@@ -208,16 +239,58 @@ export default function StudentDetailPage() {
             <StatCard title="Total Spent" value={formatCurrency(student.stats?.totalSpent || 0)} icon={DollarSign} color="green" index={1} />
           </div>
 
-          <div className="glass-card overflow-hidden">
-            <div className="p-5 border-b border-white/5 flex items-center justify-between">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
               <h3 className="font-display font-bold text-lg">Order History</h3>
               <Link href={`/admin/orders?search=${student.full_name}`} className="text-sm text-blue-400 hover:text-blue-300">
                 View All
               </Link>
             </div>
-            <div className="p-8 text-center text-muted-foreground text-sm">
-              Use the Orders page to view the full order history for this student.
-            </div>
+            <DataTable
+              columns={[
+                {
+                  key: "id",
+                  label: "Order",
+                  render: (val: unknown) => (
+                    <span className="font-mono text-xs text-muted-foreground">#{String(val).slice(0, 8)}</span>
+                  ),
+                },
+                {
+                  key: "seller",
+                  label: "Seller",
+                  render: (_: unknown, row: StudentOrder) => row.seller?.full_name || "Unknown",
+                },
+                {
+                  key: "total_amount",
+                  label: "Amount",
+                  render: (val: unknown) => (
+                    <span className="font-display font-bold text-blue-400">{formatCurrency(Number(val))}</span>
+                  ),
+                },
+                {
+                  key: "status",
+                  label: "Status",
+                  render: (val: unknown) => <StatusBadge status={String(val)} variant="order" />,
+                },
+                {
+                  key: "created_at",
+                  label: "Date",
+                  render: (val: unknown) => (
+                    <span className="text-xs text-muted-foreground">{formatRelativeTime(String(val))}</span>
+                  ),
+                },
+              ]}
+              data={studentOrders}
+              loading={ordersLoading}
+              emptyMessage="No orders yet"
+              emptyIcon={Package}
+              onRowClick={(row) => router.push(`/admin/orders/${row.id}`)}
+              pagination={{
+                page: ordersPage,
+                totalPages: ordersTotalPages,
+                onPageChange: setOrdersPage,
+              }}
+            />
           </div>
         </motion.div>
       </div>
