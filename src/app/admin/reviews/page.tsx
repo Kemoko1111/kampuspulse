@@ -18,9 +18,9 @@ interface Review {
   id: string;
   rating: number;
   comment: string;
-  status: string;
+  is_hidden: boolean;
   created_at: string;
-  user?: { full_name: string } | null;
+  reviewer?: { full_name: string } | null;
   product?: { title: string } | null;
 }
 
@@ -96,8 +96,8 @@ export default function ReviewsPage() {
     }
   };
 
-  const hiddenCount = reviews.filter(r => r.status === "hidden").length;
-  const avgRating = reviews.length > 0 
+  const hiddenCount = reviews.filter(r => r.is_hidden).length;
+  const avgRating = reviews.length > 0
     ? (reviews.reduce((acc, curr) => acc + curr.rating, 0) / reviews.length).toFixed(1)
     : "0";
 
@@ -117,19 +117,19 @@ export default function ReviewsPage() {
       ),
     },
     {
-      key: "user",
+      key: "reviewer",
       label: "Customer / Product",
       render: (_: unknown, row: Review) => (
         <div>
-          <p className="text-sm font-medium">{row.user?.full_name || "Unknown User"}</p>
+          <p className="text-sm font-medium">{row.reviewer?.full_name || "Unknown User"}</p>
           <p className="text-xs text-muted-foreground truncate max-w-[200px]">{row.product?.title || "Unknown Product"}</p>
         </div>
       ),
     },
     {
-      key: "status",
+      key: "is_hidden",
       label: "Status",
-      render: (val: unknown) => <StatusBadge status={String(val)} />,
+      render: (val: unknown) => <StatusBadge status={val ? "hidden" : "published"} />,
     },
     {
       key: "created_at",
@@ -143,7 +143,7 @@ export default function ReviewsPage() {
       label: "Hide Review",
       icon: EyeOff,
       onClick: (row: Review) => {
-        if (row.status === "hidden") return;
+        if (row.is_hidden) return;
         setActionModal({
           isOpen: true,
           reviewId: row.id,
@@ -155,7 +155,7 @@ export default function ReviewsPage() {
       label: "Approve",
       icon: Check,
       onClick: (row: Review) => {
-        if (row.status === "published") return;
+        if (!row.is_hidden) return;
         setActionModal({
           isOpen: true,
           reviewId: row.id,
