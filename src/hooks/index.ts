@@ -1,6 +1,7 @@
 "use client";
 
 export { useCart } from "./useCart";
+export { useWishlist } from "./useWishlist";
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";

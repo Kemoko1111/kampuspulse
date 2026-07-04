@@ -11,6 +11,7 @@ import {
   Flame, MapPin, Loader2, Package,
 } from "lucide-react";
 import { useCart } from "@/hooks/useCart";
+import { useWishlist } from "@/hooks/useWishlist";
 import { toast } from "react-hot-toast";
 import type { Product, ProductCondition } from "@/types";
 
@@ -25,13 +26,13 @@ const conditionLabels: Record<ProductCondition, string> = {
 export default function ProductPage() {
   const { id } = useParams<{ id: string }>();
   const [activeImage, setActiveImage] = useState(0);
-  const [wishlist, setWishlist] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
   const [adding, setAdding] = useState(false);
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { addItem } = useCart();
+  const { isWishlisted, toggleWishlist } = useWishlist();
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -214,9 +215,9 @@ export default function ProductPage() {
                 <ShoppingCart className="w-4 h-4" />
                 {adding ? "Adding..." : addedToCart ? "Added to Cart ✓" : "Add to Cart"}
               </button>
-              <button onClick={() => setWishlist(!wishlist)}
+              <button onClick={() => toggleWishlist(product.id)}
                 className="w-12 h-12 glass border border-white/10 rounded-xl flex items-center justify-center hover:bg-white/10 transition-all">
-                <Heart className={`w-5 h-5 ${wishlist ? "fill-red-400 text-red-400" : "text-muted-foreground"}`} />
+                <Heart className={`w-5 h-5 ${isWishlisted(product.id) ? "fill-red-400 text-red-400" : "text-muted-foreground"}`} />
               </button>
               <button onClick={handleShare} className="w-12 h-12 glass border border-white/10 rounded-xl flex items-center justify-center hover:bg-white/10 transition-all">
                 <Share2 className="w-5 h-5 text-muted-foreground" />
