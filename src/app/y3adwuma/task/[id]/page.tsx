@@ -173,6 +173,29 @@ export default function TaskDetailPage() {
     }
   };
 
+  const handleFundEscrow = async () => {
+    if (!id) return;
+    setActionLoading("escrow");
+    try {
+      const res = await apiFetch(`/api/tasks/${id}/pay`, { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed to start payment");
+      const payment = json.data ?? {};
+      // Real Paystack → hosted checkout; dev mode → already escrowed, just refetch.
+      if (payment.authorization_url) {
+        window.location.href = payment.authorization_url;
+      } else if (payment.dev_mode) {
+        await fetchTask();
+      } else {
+        throw new Error("Payment could not be started");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to fund escrow");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -242,6 +265,31 @@ export default function TaskDetailPage() {
               <h2 className="font-display font-bold text-base mb-2">Description</h2>
               <pre className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap font-sans">{task.description}</pre>
 
+              {/* Escrow banner for the poster */}
+              {isPoster && task.status !== "cancelled" && (
+                <div className="mt-5 pt-5 border-t border-white/5">
+                  {task.payment_status === "escrowed" ? (
+                    <div className="flex items-center gap-2 text-sm text-emerald-400">
+                      <CheckCircle className="w-4 h-4" /> Escrow funded — GHS {task.reward} held securely
+                    </div>
+                  ) : task.payment_status === "released" ? (
+                    <div className="flex items-center gap-2 text-sm text-emerald-400">
+                      <CheckCircle className="w-4 h-4" /> Payment released to the worker
+                    </div>
+                  ) : task.payment_status === "refunded" ? (
+                    <div className="text-sm text-muted-foreground">Escrow refunded.</div>
+                  ) : task.status === "open" ? (
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <button onClick={handleFundEscrow} disabled={actionLoading === "escrow"}
+                        className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium disabled:opacity-50">
+                        {actionLoading === "escrow" ? "Starting…" : `Fund Escrow — GHS ${task.reward}`}
+                      </button>
+                      <span className="text-xs text-muted-foreground">Fund the reward before accepting a worker.</span>
+                    </div>
+                  ) : null}
+                </div>
+              )}
+
               {(isPoster || isAssignee) && task.status !== "completed" && task.status !== "cancelled" && (
                 <div className="mt-5 pt-5 border-t border-white/5 flex flex-wrap gap-2">
                   {isAssignee && task.status === "assigned" && (
@@ -251,10 +299,7 @@ export default function TaskDetailPage() {
                     </button>
                   )}
                   {isAssignee && task.status === "in_progress" && (
-                    <button onClick={() => handleStatusUpdate("completed")} disabled={actionLoading === "completed"}
-                      className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium disabled:opacity-50">
-                      {actionLoading === "completed" ? "Updating..." : "Mark Complete"}
-                    </button>
+                    <span className="text-sm text-muted-foreground">Waiting for the poster to confirm completion and release your payment.</span>
                   )}
                   {isPoster && task.status === "open" && (
                     <button onClick={() => handleStatusUpdate("cancelled")} disabled={actionLoading === "cancelled"}
@@ -265,7 +310,7 @@ export default function TaskDetailPage() {
                   {isPoster && task.status === "in_progress" && (
                     <button onClick={() => handleStatusUpdate("completed")} disabled={actionLoading === "completed"}
                       className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium disabled:opacity-50">
-                      Confirm Complete
+                      {actionLoading === "completed" ? "Releasing…" : `Confirm Complete & Pay GHS ${Math.round(task.reward * 0.9 * 100) / 100}`}
                     </button>
                   )}
                 </div>
@@ -333,8 +378,17 @@ export default function TaskDetailPage() {
                           {app.cover_message && <p className="text-xs text-muted-foreground">{app.cover_message}</p>}
                           {isPoster && task.status === "open" && app.status === "pending" && (
                             <div className="flex gap-2 mt-3">
-                              <button onClick={() => handleAccept(app.id)} disabled={actionLoading === app.id}
-                                className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-medium disabled:opacity-50">
+                              <button
+                                onClick={() => task.payment_status === "escrowed"
+                                  ? handleAccept(app.id)
+                                  : setError("Fund the escrow above before accepting a worker.")}
+                                disabled={actionLoading === app.id}
+                                title={task.payment_status === "escrowed" ? "Accept applicant" : "Fund escrow first"}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-50 ${
+                                  task.payment_status === "escrowed"
+                                    ? "bg-emerald-600 text-white"
+                                    : "bg-emerald-600/40 text-white/70 cursor-not-allowed"
+                                }`}>
                                 Accept
                               </button>
                               <button onClick={() => handleReject(app.id)} disabled={actionLoading === app.id}

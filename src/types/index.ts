@@ -155,6 +155,10 @@ export interface Task {
   images?: string[];
   is_urgent: boolean;
   total_applicants: number;
+  // Escrow lifecycle: pending (unfunded) → escrowed (poster paid) → released
+  // (paid out to worker on completion) or refunded (poster refunded on cancel).
+  payment_status?: "pending" | "escrowed" | "released" | "refunded";
+  payment_reference?: string;
   created_at: string;
   updated_at: string;
   poster?: Profile;
