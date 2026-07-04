@@ -160,29 +160,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [supabase, fetchProfile]);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (!error) registerFcmToken();
-    return { error: error?.message ?? null };
+    // Proxied through our own route (rather than calling
+    // supabase.auth.signInWithPassword directly) so it can be rate-limited —
+    // a direct client call goes straight to Supabase's auth server and
+    // nothing in this app's request path ever sees it.
+    const res = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    const json = await res.json();
+    if (!res.ok) return { error: json.error || "Sign in failed" };
+    registerFcmToken();
+    return { error: null };
   };
 
   const signUp = async (params: SignUpParams) => {
-    const { error } = await supabase.auth.signUp({
-      email: params.email,
-      password: params.password,
-      options: {
-        data: {
-          full_name: params.fullName,
-          phone: params.phone,
-          role: params.role,
-          student_id: params.studentId,
-          department: params.department,
-          hall_of_residence: params.hallOfResidence,
-        },
-      },
+    const res = await fetch("/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: params.email,
+        password: params.password,
+        fullName: params.fullName,
+        phone: params.phone,
+        role: params.role,
+        studentId: params.studentId,
+        department: params.department,
+        hallOfResidence: params.hallOfResidence,
+      }),
     });
-
-    if (error) return { error: error.message };
-
+    const json = await res.json();
+    if (!res.ok) return { error: json.error || "Registration failed" };
     return { error: null };
   };
 
@@ -207,14 +216,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const resetPassword = async (email: string) => {
-    // ?recovery=1 marks this specific redirect as "just completed the email
-    // reset link", not "an already-logged-in user browsing to this page" —
-    // /reset-password/page.tsx and middleware.ts both key off it to show the
-    // actual new-password form instead of bouncing the user away.
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/reset-password?recovery=1")}`,
+    const res = await fetch("/api/auth/reset-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
     });
-    return { error: error?.message ?? null };
+    const json = await res.json();
+    if (!res.ok) return { error: json.error || "Failed to send reset email" };
+    return { error: null };
   };
 
   return (

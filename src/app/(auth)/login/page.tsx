@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { Suspense, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import {
   Eye, EyeOff, Mail, Lock, Zap, ArrowRight, Chrome, AlertCircle,
 } from "lucide-react";
@@ -13,7 +13,6 @@ import { signInWithGoogle } from "@/lib/auth-oauth";
 
 function LoginForm() {
   const { signIn } = useAuth();
-  const router = useRouter();
   const searchParams = useSearchParams();
   const rawRedirectTo = searchParams.get("redirectTo");
   // Only allow same-origin relative paths — an unvalidated redirectTo would let
@@ -47,18 +46,26 @@ function LoginForm() {
       setError(error);
       setLoading(false);
     } else {
-      router.push(redirectTo);
+      // Hard navigation, not router.push: the session cookie was just set by
+      // a server response our browser-side Supabase client didn't make
+      // itself, so AuthProvider needs a fresh page load to pick it up
+      // reliably rather than relying on in-memory state reconciling.
+      window.location.href = redirectTo;
     }
   };
 
   const handleResendConfirmation = async () => {
     if (!email) { setError("Enter your email address above first."); return; }
     setResendLoading(true);
-    const supabase = createClient();
-    const { error } = await supabase.auth.resend({ type: "signup", email });
+    const res = await fetch("/api/auth/resend-confirmation", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    const json = await res.json();
     setResendLoading(false);
-    if (error) {
-      setError(error.message);
+    if (!res.ok) {
+      setError(json.error || "Failed to resend confirmation email");
     } else {
       setResendSent(true);
       setError(null);
