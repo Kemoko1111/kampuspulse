@@ -66,7 +66,22 @@ export async function GET(
       throw new AppError("Order not found", 404, "NOT_FOUND");
     }
 
-    return NextResponse.json({ order: data });
+    // Orders don't store a transaction id directly — the payment record they're
+    // linked to lives in `transactions`, keyed by the shared `reference` string.
+    // Look it up so the admin UI can offer a refund action against the right
+    // transaction without a second round trip.
+    let transaction: { id: string; amount: number; status: string } | null = null;
+    const paymentReference = (data as { payment_reference?: string | null }).payment_reference;
+    if (paymentReference) {
+      const { data: txn } = await supabase
+        .from("transactions")
+        .select("id, amount, status")
+        .eq("reference", paymentReference)
+        .maybeSingle();
+      transaction = txn as { id: string; amount: number; status: string } | null;
+    }
+
+    return NextResponse.json({ order: { ...(data as object), transaction } });
   } catch (error) {
     return handleApiError(error);
   }
