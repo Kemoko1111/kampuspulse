@@ -34,7 +34,7 @@ export async function PATCH(
     const body = updateRideSchema.parse(await request.json());
 
     const service = new RideService(supabase);
-    const data = await service.updateRideStatus(id, profile.id, body.status!, body.riderId);
+    const data = await service.updateRideStatus(id, profile.id, body.status);
     return NextResponse.json({ data });
   } catch (error) {
     return handleApiError(error);

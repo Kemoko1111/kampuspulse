@@ -6,6 +6,17 @@ import { NotificationRepository } from "@/lib/repositories/notification.reposito
 import { calculateFare, findNearestRider, type FareSettings } from "@/lib/services/fare.service";
 import { PaymentService } from "@/lib/services/payment.service";
 
+// Rider-driven steps (only the assigned rider taps through these, matching
+// the actual UI flow in rider/page.tsx's handleArrived); "cancelled" is the
+// one transition either side can make, at any point before completion.
+const RIDER_ONLY_TRANSITIONS: Record<string, string[]> = {
+  accepted: ["en_route"],
+  en_route: ["arrived"],
+  arrived: ["in_progress"],
+  in_progress: ["completed"],
+};
+const CANCELLABLE_FROM = ["searching", "accepted", "en_route", "arrived", "in_progress"];
+
 export class RideService {
   private rideRepo: RideRepository;
   private notifRepo: NotificationRepository;
@@ -91,7 +102,7 @@ export class RideService {
     return nearest;
   }
 
-  async updateRideStatus(rideId: string, profileId: string, status: string, riderId?: string) {
+  async updateRideStatus(rideId: string, profileId: string, status: string) {
     const { data: rawRide, error } = await this.rideRepo.findById(rideId);
     const ride = rawRide as Ride | null;
     if (error || !ride) throw new AppError("Ride not found", 404);
@@ -100,8 +111,24 @@ export class RideService {
     const isRider = ride.rider_id === profileId;
     if (!isPassenger && !isRider) throw new AppError("Forbidden", 403);
 
+    if (status === "cancelled") {
+      if (!CANCELLABLE_FROM.includes(ride.status)) {
+        throw new AppError(`Cannot cancel a ride that is already ${ride.status}`, 400);
+      }
+    } else {
+      // Every other transition is rider-driven and must follow the sequence
+      // — a passenger has no legitimate transition besides "cancelled", and
+      // there's no client-settable rider_id here (that's only ever assigned
+      // internally by matchRider()) so a ride can't be hijacked onto a
+      // different rider's account through this endpoint.
+      if (!isRider) throw new AppError("Forbidden", 403);
+      const allowedNext = RIDER_ONLY_TRANSITIONS[ride.status] || [];
+      if (!allowedNext.includes(status)) {
+        throw new AppError(`Cannot move a ride from ${ride.status} to ${status}`, 400);
+      }
+    }
+
     const updates: Record<string, unknown> = { status };
-    if (riderId) updates.rider_id = riderId;
     if (status === "completed") updates.actual_fare = ride.estimated_fare;
 
     const { data, error: updateError } = await this.rideRepo.update(rideId, updates);

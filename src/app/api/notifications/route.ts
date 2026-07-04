@@ -31,7 +31,7 @@ export async function PATCH(request: NextRequest) {
     if (body.markAllRead) {
       await repo.markAllRead(profile.id);
     } else if (body.id) {
-      await repo.markRead(body.id);
+      await repo.markRead(body.id, profile.id);
     }
 
     return NextResponse.json({ success: true });

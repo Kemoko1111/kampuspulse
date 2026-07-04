@@ -14,8 +14,7 @@ export const createRideSchema = z.object({
 });
 
 export const updateRideSchema = z.object({
-  status: z.enum(["searching", "accepted", "en_route", "arrived", "in_progress", "completed", "cancelled"]).optional(),
-  riderId: z.string().uuid().optional(),
+  status: z.enum(["searching", "accepted", "en_route", "arrived", "in_progress", "completed", "cancelled"]),
 });
 
 export const riderLocationSchema = z.object({
