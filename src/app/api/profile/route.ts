@@ -33,7 +33,7 @@ export async function PATCH(request: NextRequest) {
   const allowedFields = [
     "full_name", "bio", "phone", "location",
     "hall_of_residence", "department", "year_of_study",
-    "avatar_url", "student_id",
+    "avatar_url", "student_id", "notification_preferences",
   ];
 
   const updates: Record<string, unknown> = {};

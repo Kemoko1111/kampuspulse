@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import Link from "next/link";
 import { useEffect, useState, type ChangeEvent } from "react";
 import { Bell, Shield, Moon, Globe, Trash2, LogOut, ChevronRight, User, CreditCard, Smartphone, Loader2, Check, AlertCircle } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -32,15 +33,15 @@ const settingSections = [
     title: "Payments",
     items: [
       { label: "Saved Payment Methods", icon: CreditCard, href: "#" },
-      { label: "Transaction History", icon: CreditCard, href: "#" },
+      { label: "Transaction History", icon: CreditCard, href: "/transactions" },
     ],
   },
   {
     title: "More",
     items: [
       { label: "Language", icon: Globe, value: "English (Ghana)", href: "#" },
-      { label: "Privacy Policy", icon: Shield, href: "#" },
-      { label: "Terms of Service", icon: Shield, href: "#" },
+      { label: "Privacy Policy", icon: Shield, href: "/privacy" },
+      { label: "Terms of Service", icon: Shield, href: "/terms" },
     ],
   },
 ];
@@ -62,7 +63,16 @@ export default function SettingsPage() {
   const { signOut } = useAuth();
   const { profile, loading: profileLoading, updateProfile } = useProfile();
   const [toggles, setToggles] = useState({ push: true, email: true, sms: false });
-  const toggle = (key: string) => setToggles(prev => ({ ...prev, [key]: !prev[key as keyof typeof prev] }));
+
+  useEffect(() => {
+    if (profile?.notification_preferences) setToggles(profile.notification_preferences);
+  }, [profile]);
+
+  const toggle = async (key: string) => {
+    const next = { ...toggles, [key]: !toggles[key as keyof typeof toggles] };
+    setToggles(next);
+    await updateProfile({ notification_preferences: next });
+  };
 
   const [profileForm, setProfileForm] = useState<ProfileFormState>(emptyProfileForm);
   const [savingProfile, setSavingProfile] = useState(false);
@@ -217,25 +227,42 @@ export default function SettingsPage() {
                 <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{section.title}</h2>
               </div>
               <div className="divide-y divide-white/5">
-                {section.items.map((item) => (
-                  <div key={item.label} className="flex items-center gap-3 px-5 py-3.5 hover:bg-white/3 transition-colors">
-                    <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0">
-                      <item.icon className="w-4 h-4 text-muted-foreground" />
+                {section.items.map((item) => {
+                  const isToggle = "toggle" in item && item.toggle;
+                  const isRealLink = "href" in item && item.href !== "#";
+                  const content = (
+                    <>
+                      <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0">
+                        <item.icon className="w-4 h-4 text-muted-foreground" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm font-medium text-foreground">{item.label}</span>
+                        {"value" in item && item.value && <span className="text-xs text-muted-foreground ml-2">{item.value}</span>}
+                      </div>
+                      {isToggle ? (
+                        <button onClick={() => toggle(item.key!)}
+                          className={`relative w-11 h-6 rounded-full transition-all ${toggles[item.key as keyof typeof toggles] ? "bg-blue-500" : "bg-white/20"}`}>
+                          <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${toggles[item.key as keyof typeof toggles] ? "left-5" : "left-0.5"}`} />
+                        </button>
+                      ) : (
+                        <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                      )}
+                    </>
+                  );
+
+                  if (isRealLink) {
+                    return (
+                      <Link key={item.label} href={item.href!} className="flex items-center gap-3 px-5 py-3.5 hover:bg-white/3 transition-colors">
+                        {content}
+                      </Link>
+                    );
+                  }
+                  return (
+                    <div key={item.label} className="flex items-center gap-3 px-5 py-3.5 hover:bg-white/3 transition-colors">
+                      {content}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <span className="text-sm font-medium text-foreground">{item.label}</span>
-                      {"value" in item && item.value && <span className="text-xs text-muted-foreground ml-2">{item.value}</span>}
-                    </div>
-                    {"toggle" in item && item.toggle ? (
-                      <button onClick={() => toggle(item.key!)}
-                        className={`relative w-11 h-6 rounded-full transition-all ${toggles[item.key as keyof typeof toggles] ? "bg-blue-500" : "bg-white/20"}`}>
-                        <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${toggles[item.key as keyof typeof toggles] ? "left-5" : "left-0.5"}`} />
-                      </button>
-                    ) : (
-                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </motion.div>
           ))}

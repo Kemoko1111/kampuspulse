@@ -31,6 +31,7 @@ export interface Profile {
   is_verified: boolean;
   rating: number;
   total_reviews: number;
+  notification_preferences?: { push: boolean; email: boolean; sms: boolean };
   created_at: string;
   updated_at: string;
 }
