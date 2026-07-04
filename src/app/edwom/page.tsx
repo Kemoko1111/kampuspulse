@@ -15,15 +15,17 @@ import { useProducts, useCart, useWishlist } from "@/hooks";
 import { useAuth } from "@/contexts/auth-context";
 import { formatCurrency } from "@/lib/utils";
 
+// `id` MUST match the category slug in the DB (products are filtered by it) —
+// e.g. "tech-accessories", not "tech", or that tab silently shows nothing.
 const categories = [
-  { id: "all",         name: "All",            icon: Grid3X3 },
-  { id: "electronics", name: "Electronics",    icon: Smartphone },
-  { id: "fashion",     name: "Fashion",        icon: Shirt },
-  { id: "books",       name: "Books",          icon: BookOpen },
-  { id: "food",        name: "Food & Drinks",  icon: Utensils },
-  { id: "beauty",      name: "Beauty",         icon: Sparkles },
-  { id: "hostel",      name: "Hostel Items",   icon: Home },
-  { id: "tech",        name: "Tech Accessories",icon: Cpu },
+  { id: "all",              name: "All",             icon: Grid3X3 },
+  { id: "electronics",      name: "Electronics",     icon: Smartphone },
+  { id: "fashion",          name: "Fashion",         icon: Shirt },
+  { id: "books",            name: "Books",           icon: BookOpen },
+  { id: "food",             name: "Food & Drinks",   icon: Utensils },
+  { id: "beauty",           name: "Beauty",          icon: Sparkles },
+  { id: "hostel",           name: "Hostel Items",    icon: Home },
+  { id: "tech-accessories", name: "Tech Accessories",icon: Cpu },
 ];
 
 const sortOptions = [

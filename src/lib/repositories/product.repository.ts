@@ -1,5 +1,7 @@
 import type { TypedSupabaseClient } from "@/lib/supabase/types";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export class ProductRepository {
   constructor(private supabase: TypedSupabaseClient) {}
 
@@ -14,6 +16,27 @@ export class ProductRepository {
     minPrice?: number;
     maxPrice?: number;
   }) {
+    // The EDWOM UI sends a category *slug* ("electronics"), but products.category_id
+    // is a UUID — filtering with the slug directly makes Postgres throw
+    // "invalid input syntax for type uuid", which surfaced as "Failed to load
+    // products" the instant a user tapped any category tab. Resolve slug->id
+    // first; still accept a raw UUID so admin/other callers keep working.
+    let categoryId: string | undefined;
+    if (params.category && params.category !== "all") {
+      if (UUID_RE.test(params.category)) {
+        categoryId = params.category;
+      } else {
+        const { data: cat } = await this.supabase
+          .from("categories")
+          .select("id")
+          .eq("slug", params.category)
+          .maybeSingle();
+        // No matching slug -> return an empty set rather than every product,
+        // so an unknown category reads as "nothing here" not "ignore the filter".
+        categoryId = (cat as { id: string } | null)?.id ?? "00000000-0000-0000-0000-000000000000";
+      }
+    }
+
     let query = this.supabase
       .from("products")
       .select(`
@@ -24,8 +47,8 @@ export class ProductRepository {
       .eq("status", "active")
       .is("deleted_at", null);
 
-    if (params.category && params.category !== "all") {
-      query = query.eq("category_id", params.category);
+    if (categoryId) {
+      query = query.eq("category_id", categoryId);
     }
     if (params.search) {
       query = query.or(`title.ilike.%${params.search}%,description.ilike.%${params.search}%`);
