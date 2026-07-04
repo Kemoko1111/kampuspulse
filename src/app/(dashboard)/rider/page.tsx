@@ -7,7 +7,7 @@ import dynamic from "next/dynamic";
 import {
   Bike, Navigation, Clock,
   Power,
-  X, Phone, MessageSquare,
+  X, Phone, MessageSquare, ShieldAlert,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { apiFetch } from "@/lib/api-client";
@@ -33,6 +33,8 @@ export default function RiderDashboard() {
   const [todayEarnings, setTodayEarnings] = useState(0);
   const [locationLoading, setLocationLoading] = useState(true);
   const [timeoutSeconds, setTimeoutSeconds] = useState(30);
+  // null = not loaded yet; false = revoked/unverified (never receives rides)
+  const [isVerified, setIsVerified] = useState<boolean | null>(null);
 
   const activeRideRef = useRef<Ride | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -82,6 +84,23 @@ export default function RiderDashboard() {
   useEffect(() => {
     fetchTodayEarnings();
   }, [fetchTodayEarnings]);
+
+  // A rider only receives ride requests when is_verified — surface it so an
+  // unverified/revoked rider understands why nothing ever comes in, instead
+  // of silently sitting on "Finding requests..." forever.
+  useEffect(() => {
+    if (!profile?.id) return;
+    let cancelled = false;
+    supabase
+      .from("rider_profiles")
+      .select("is_verified")
+      .eq("user_id", profile.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled) setIsVerified((data as { is_verified: boolean } | null)?.is_verified ?? true);
+      });
+    return () => { cancelled = true; };
+  }, [profile?.id, supabase]);
 
   const updateLocation = useCallback(async (lat: number, lng: number) => {
     setRiderLocation([lat, lng]);
@@ -317,6 +336,16 @@ export default function RiderDashboard() {
           </div>
         </div>
       </div>
+
+      {isVerified === false && (
+        <div className="mb-4 flex items-start gap-3 rounded-2xl border border-orange-500/20 bg-orange-500/10 p-4 text-orange-300">
+          <ShieldAlert className="w-5 h-5 flex-shrink-0 mt-0.5" />
+          <div className="text-sm">
+            <p className="font-semibold">Your rider account isn&apos;t verified</p>
+            <p className="text-orange-300/80">You won&apos;t receive ride requests until an admin verifies your account. Contact support if this seems wrong.</p>
+          </div>
+        </div>
+      )}
 
       <main className="flex-1 relative w-full rounded-3xl overflow-hidden glass border border-white/5 shadow-2xl">
 

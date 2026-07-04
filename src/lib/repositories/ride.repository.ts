@@ -47,9 +47,12 @@ export class RideRepository {
       .maybeSingle();
 
     if (!data) {
+      // is_verified: true so a brand-new rider is immediately matchable —
+      // findAvailableRiders requires it, and this app has no separate
+      // document-verification step. Admins can revoke via the admin panel.
       await this.supabase
         .from("rider_profiles")
-        .insert({ user_id: profileId, vehicle_type: "motorbike" } as never);
+        .insert({ user_id: profileId, vehicle_type: "motorbike", is_verified: true } as never);
     }
   }
 

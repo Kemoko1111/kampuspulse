@@ -6,7 +6,10 @@ import { z } from "zod";
 
 const schema = z.object({
   status: z.enum(["active", "suspended", "pending", "banned"]).optional(),
-  rider_status: z.enum(["online", "offline", "busy"]).optional(),
+  // Admin verify/unverify toggle. is_verified gates whether a rider is
+  // matchable (RideRepository.findAvailableRiders); riders default to
+  // verified now, so this is the admin's revoke/restore switch.
+  is_verified: z.boolean().optional(),
 });
 
 export async function GET(
@@ -61,9 +64,15 @@ export async function PATCH(
     if (body.status) {
       await supabase.from("profiles").update({ status: body.status } as never).eq("id", id);
     }
-    
-    if (body.rider_status) {
-      await supabase.from("rider_profiles").update({ current_status: body.rider_status } as never).eq("id", id);
+
+    if (body.is_verified !== undefined) {
+      // rider_profiles keys on user_id (= the profile id in this URL), not its
+      // own PK — the previous code updated .eq("id", id) against a nonexistent
+      // "current_status" column, so it matched zero rows and did nothing.
+      await supabase
+        .from("rider_profiles")
+        .update({ is_verified: body.is_verified } as never)
+        .eq("user_id", id);
     }
 
     await supabase.from("admin_logs").insert({

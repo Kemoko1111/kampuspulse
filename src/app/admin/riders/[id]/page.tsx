@@ -32,9 +32,10 @@ interface RiderDetail {
   status: string;
   created_at: string;
   rider_profiles: {
-    current_status: string;
     vehicle_type: string;
-    vehicle_plate: string;
+    vehicle_number: string;
+    is_verified: boolean;
+    is_available: boolean;
   }[];
   stats?: {
     completedOrders: number;
@@ -60,6 +61,7 @@ export default function RiderDetailPage() {
     message: string;
     variant: "default" | "warning" | "danger";
   } | null>(null);
+  const [verifyLoading, setVerifyLoading] = useState(false);
 
   const fetchRider = useCallback(async () => {
     setLoading(true);
@@ -112,6 +114,21 @@ export default function RiderDetailPage() {
     }
   };
 
+  const handleVerifyToggle = async (nextVerified: boolean) => {
+    setVerifyLoading(true);
+    try {
+      await apiFetch(`/api/admin/riders/${riderId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ is_verified: nextVerified }),
+      });
+      fetchRider();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setVerifyLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -150,7 +167,7 @@ export default function RiderDetailPage() {
         subtitle={`Joined ${formatRelativeTime(rider.created_at)}`}
         actions={
           <div className="flex items-center gap-3">
-            <StatusBadge status={profile?.current_status || "offline"} variant="rider" />
+            <StatusBadge status={profile?.is_available ? "online" : "offline"} variant="rider" />
             <StatusBadge status={rider.status} variant="user" />
           </div>
         }
@@ -200,17 +217,55 @@ export default function RiderDetailPage() {
                     <p className="text-sm font-medium capitalize">{profile.vehicle_type || "Not specified"}</p>
                   </div>
                 </div>
-                {profile.vehicle_plate && (
+                {profile.vehicle_number && (
                   <div className="flex items-start gap-3">
                     <MapPin className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                     <div>
                       <p className="text-xs text-muted-foreground">License Plate</p>
-                      <p className="text-sm font-medium uppercase">{profile.vehicle_plate}</p>
+                      <p className="text-sm font-medium uppercase">{profile.vehicle_number}</p>
                     </div>
                   </div>
                 )}
               </div>
             )}
+          </div>
+
+          {/* Verification — gates whether this rider is matchable to rides */}
+          <div className="glass-card p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="font-display font-bold text-sm">Ride Verification</h4>
+              {profile?.is_verified ? (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-green-500/10 text-green-400 text-xs font-semibold border border-green-500/20">
+                  <Check className="w-3 h-3" /> Verified
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-orange-500/10 text-orange-400 text-xs font-semibold border border-orange-500/20">
+                  <ShieldAlert className="w-3 h-3" /> Unverified
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {profile?.is_verified
+                ? "This rider can receive ride requests. Revoke to stop matching them to new rides."
+                : "Unverified riders never receive ride requests. Verify to make them matchable."}
+            </p>
+            <button
+              onClick={() => handleVerifyToggle(!profile?.is_verified)}
+              disabled={verifyLoading}
+              className={`w-full px-4 py-2.5 rounded-xl flex justify-center items-center gap-2 text-sm font-semibold transition-colors disabled:opacity-50 ${
+                profile?.is_verified
+                  ? "border border-orange-500/30 text-orange-400 hover:bg-orange-500/10"
+                  : "btn-primary"
+              }`}
+            >
+              {verifyLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : profile?.is_verified ? (
+                <><ShieldAlert className="w-4 h-4" /> Revoke Verification</>
+              ) : (
+                <><Check className="w-4 h-4" /> Verify Rider</>
+              )}
+            </button>
           </div>
 
           {/* Action Buttons */}
