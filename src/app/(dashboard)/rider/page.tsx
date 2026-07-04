@@ -7,13 +7,22 @@ import dynamic from "next/dynamic";
 import {
   Bike, Navigation, Clock,
   Power,
-  X, Phone, MessageSquare, ShieldAlert,
+  X, Phone, MessageSquare, ShieldAlert, Package,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { apiFetch } from "@/lib/api-client";
 import { toast } from "react-hot-toast";
 import { createClient } from "@/lib/supabase/client";
-import type { Ride, Profile } from "@/types";
+import type { Ride, Profile, Delivery } from "@/types";
+
+// The Delivery type doesn't carry the map coords, but the DB rows (and the
+// realtime payloads) do — widen it locally for the pickup/dropoff markers.
+type DeliveryJob = Delivery & {
+  pickup_lat?: number | null;
+  pickup_lng?: number | null;
+  delivery_lat?: number | null;
+  delivery_lng?: number | null;
+};
 
 const GoogleMap = dynamic(
   () => import("@/components/maps/GoogleMap"),
@@ -29,6 +38,8 @@ export default function RiderDashboard() {
   const [incomingRide, setIncomingRide] = useState<Ride | null>(null);
   const [activeRide, setActiveRide] = useState<Ride | null>(null);
   const [activePassenger, setActivePassenger] = useState<Profile | null>(null);
+  const [incomingDelivery, setIncomingDelivery] = useState<DeliveryJob | null>(null);
+  const [activeDelivery, setActiveDelivery] = useState<DeliveryJob | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [todayEarnings, setTodayEarnings] = useState(0);
   const [locationLoading, setLocationLoading] = useState(true);
@@ -37,6 +48,7 @@ export default function RiderDashboard() {
   const [isVerified, setIsVerified] = useState<boolean | null>(null);
 
   const activeRideRef = useRef<Ride | null>(null);
+  const activeDeliveryRef = useRef<DeliveryJob | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const locationWatchRef = useRef<number | null>(null);
   const supabase = createClient();
@@ -44,6 +56,10 @@ export default function RiderDashboard() {
   useEffect(() => {
     activeRideRef.current = activeRide;
   }, [activeRide]);
+
+  useEffect(() => {
+    activeDeliveryRef.current = activeDelivery;
+  }, [activeDelivery]);
 
   // The realtime ride payload and the PATCH /api/rides/:id response are both
   // plain row updates with no `passenger` relation attached, so we fetch the
@@ -118,6 +134,21 @@ export default function RiderDashboard() {
         const ride = data as Ride;
         if (ride.status === "accepted") setIncomingRide(ride);
         else setActiveRide(ride);
+      });
+
+    supabase
+      .from("deliveries")
+      .select("*")
+      .eq("rider_id", profile.id)
+      .in("status", ["accepted", "en_route", "picked_up"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled || !data) return;
+        const d = data as DeliveryJob;
+        if (d.status === "accepted") setIncomingDelivery(d);
+        else setActiveDelivery(d);
       });
 
     return () => { cancelled = true; };
@@ -212,6 +243,43 @@ export default function RiderDashboard() {
 
     return () => { supabase.removeChannel(channel); };
   }, [profile?.id, supabase, fetchTodayEarnings]);
+
+  // Deliveries: same pattern as rides. DeliveryService assigns the nearest
+  // rider by setting rider_id + status 'accepted' (an UPDATE), so the assigned
+  // rider is notified via the UPDATE handler; INSERT is covered too for safety.
+  useEffect(() => {
+    if (!profile?.id) return;
+
+    const channel = supabase
+      .channel(`rider-deliveries:${profile.id}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "deliveries", filter: `rider_id=eq.${profile.id}` },
+        (payload) => {
+          const d = payload.new as DeliveryJob;
+          if (d.status === "accepted") setIncomingDelivery(d);
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "deliveries", filter: `rider_id=eq.${profile.id}` },
+        (payload) => {
+          const d = payload.new as DeliveryJob;
+          if (d.status === "accepted" && !activeDeliveryRef.current) {
+            setIncomingDelivery(d);
+          } else if (["en_route", "picked_up"].includes(d.status)) {
+            setActiveDelivery(d);
+            setIncomingDelivery(null);
+          } else if (d.status === "delivered" || d.status === "cancelled") {
+            setActiveDelivery(null);
+            setIncomingDelivery(null);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [profile?.id, supabase]);
 
   useEffect(() => {
     if (incomingRide && !activeRide) {
@@ -328,13 +396,80 @@ export default function RiderDashboard() {
     }
   };
 
-  const pickupCoords: [number, number] | null = (incomingRide || activeRide)?.pickup_lat && (incomingRide || activeRide)?.pickup_lng
-    ? [(incomingRide || activeRide)!.pickup_lat!, (incomingRide || activeRide)!.pickup_lng!]
-    : null;
+  const handleAcceptDelivery = async () => {
+    if (!incomingDelivery) return;
+    setActionLoading(true);
+    try {
+      const res = await apiFetch(`/api/deliveries/${incomingDelivery.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "en_route" }),
+      });
+      if (!res.ok) throw new Error("Failed to accept delivery");
+      const { data } = await res.json();
+      setActiveDelivery(data);
+      setIncomingDelivery(null);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to accept delivery");
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
-  const dropoffCoords: [number, number] | null = (incomingRide || activeRide)?.destination_lat && (incomingRide || activeRide)?.destination_lng
-    ? [(incomingRide || activeRide)!.destination_lat!, (incomingRide || activeRide)!.destination_lng!]
-    : null;
+  const handleDeclineDelivery = async () => {
+    if (!incomingDelivery) return;
+    setActionLoading(true);
+    try {
+      const res = await apiFetch(`/api/deliveries/${incomingDelivery.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "cancelled" }),
+      });
+      if (!res.ok) throw new Error("Failed to decline delivery");
+      setIncomingDelivery(null);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to decline delivery");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDeliveryNext = async () => {
+    if (!activeDelivery) return;
+    setActionLoading(true);
+    try {
+      const nextStatus = activeDelivery.status === "en_route" ? "picked_up" : "delivered";
+      const res = await apiFetch(`/api/deliveries/${activeDelivery.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      if (!res.ok) throw new Error("Failed to update delivery");
+      const { data } = await res.json();
+      if (nextStatus === "delivered") setActiveDelivery(null);
+      else setActiveDelivery(data);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to update delivery");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // The map's pickup/dropoff show whichever job is active — a ride or a
+  // delivery (a driver handles one at a time).
+  const job = incomingRide || activeRide;
+  const deliveryJob = incomingDelivery || activeDelivery;
+
+  const pickupCoords: [number, number] | null =
+    job?.pickup_lat && job?.pickup_lng
+      ? [job.pickup_lat, job.pickup_lng]
+      : deliveryJob?.pickup_lat && deliveryJob?.pickup_lng
+        ? [deliveryJob.pickup_lat, deliveryJob.pickup_lng]
+        : null;
+
+  const dropoffCoords: [number, number] | null =
+    job?.destination_lat && job?.destination_lng
+      ? [job.destination_lat, job.destination_lng]
+      : deliveryJob?.delivery_lat && deliveryJob?.delivery_lng
+        ? [deliveryJob.delivery_lat, deliveryJob.delivery_lng]
+        : null;
 
   return (
     <div className="p-4 lg:p-8 flex flex-col h-[calc(100vh-60px)] lg:h-[calc(100vh-0px)]">
@@ -389,7 +524,7 @@ export default function RiderDashboard() {
         <div className="absolute bottom-4 left-4 right-4 z-20 pointer-events-none flex flex-col justify-end">
           <AnimatePresence>
             {/* Searching Radar State */}
-            {!incomingRide && !activeRide && (
+            {!incomingRide && !activeRide && !incomingDelivery && !activeDelivery && (
               <motion.div
                 initial={{ y: 100, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
@@ -535,6 +670,106 @@ export default function RiderDashboard() {
                       activeRide.status === "en_route" ? "Arrived at Pickup" :
                       activeRide.status === "arrived" ? "Start Trip" :
                       activeRide.status === "in_progress" ? "Complete" : "Update"}
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Incoming Delivery Request (only when no ride occupies the sheet) */}
+            {incomingDelivery && !activeDelivery && !incomingRide && !activeRide && (
+              <motion.div
+                initial={{ y: "100%" }}
+                animate={{ y: 0 }}
+                exit={{ y: "100%" }}
+                transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                className="glass-card w-full max-w-md mx-auto pointer-events-auto border-t-4 border-t-blue-500 shadow-[0_-20px_50px_rgba(0,0,0,0.5)] overflow-hidden"
+              >
+                <div className="absolute inset-0 bg-blue-500/5 animate-pulse pointer-events-none" />
+                <div className="p-5 relative z-10">
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 text-[10px] font-bold uppercase tracking-wider mb-2 border border-blue-500/20">
+                        <Package className="w-3 h-3" />
+                        Delivery Request
+                      </span>
+                      <h3 className="font-black text-3xl tracking-tight">
+                        GHS {(incomingDelivery.estimated_fee ?? 0).toFixed(2)}
+                      </h3>
+                    </div>
+                  </div>
+
+                  {incomingDelivery.package_description && (
+                    <p className="text-xs text-muted-foreground mb-3">
+                      <span className="uppercase font-bold tracking-wider">Package:</span> {incomingDelivery.package_description}
+                    </p>
+                  )}
+
+                  <div className="bg-black/20 rounded-2xl p-4 mb-5 border border-white/5 relative">
+                    <div className="absolute left-[27px] top-8 bottom-8 w-0.5 bg-white/10" />
+                    <div className="relative z-10 flex gap-4 items-center mb-4">
+                      <div className="w-4 h-4 rounded-full bg-orange-500 ring-4 ring-orange-500/20 flex-shrink-0" />
+                      <div>
+                        <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Pickup</div>
+                        <div className="font-semibold text-sm">{incomingDelivery.pickup_address}</div>
+                      </div>
+                    </div>
+                    <div className="relative z-10 flex gap-4 items-center">
+                      <div className="w-4 h-4 rounded-none bg-green-500 ring-4 ring-green-500/20 flex-shrink-0" />
+                      <div>
+                        <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Drop-off</div>
+                        <div className="font-semibold text-sm">{incomingDelivery.delivery_address}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button onClick={handleDeclineDelivery} disabled={actionLoading}
+                      className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 text-white flex items-center justify-center hover:bg-white/10 transition-colors disabled:opacity-50">
+                      <X className="w-6 h-6" />
+                    </button>
+                    <button onClick={handleAcceptDelivery} disabled={actionLoading}
+                      className="flex-1 h-14 rounded-2xl bg-blue-600 text-white font-bold text-lg hover:bg-blue-500 transition-all shadow-[0_0_20px_rgba(37,99,235,0.4)] active:scale-[0.98] disabled:opacity-50">
+                      {actionLoading ? "..." : "Accept"}
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Active Delivery Navigation */}
+            {activeDelivery && !activeRide && (
+              <motion.div
+                initial={{ y: "100%" }}
+                animate={{ y: 0 }}
+                className="glass-card w-full max-w-md mx-auto pointer-events-auto border-t-4 border-t-green-500 shadow-[0_-20px_50px_rgba(0,0,0,0.5)]"
+              >
+                <div className="p-4 border-b border-white/5 flex items-center justify-between bg-green-500/5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center text-green-400">
+                      <Package className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="font-bold capitalize">{activeDelivery.status.replace("_", " ")}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {activeDelivery.status === "picked_up" ? activeDelivery.delivery_address : activeDelivery.pickup_address}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right font-bold text-green-400">
+                    GHS {(activeDelivery.estimated_fee ?? 0).toFixed(2)}
+                  </div>
+                </div>
+
+                <div className="p-4 flex gap-3">
+                  <Link href={activeDelivery.sender_id ? `/messages?user=${activeDelivery.sender_id}` : "/messages"}
+                    className="flex-1 py-3 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center gap-2 font-medium hover:bg-white/10">
+                    <MessageSquare className="w-4 h-4" /> Chat
+                  </Link>
+                  <button onClick={handleDeliveryNext} disabled={actionLoading}
+                    className="flex-[2] py-3 rounded-xl bg-green-600 text-white font-bold hover:bg-green-500 shadow-[0_0_15px_rgba(34,197,94,0.3)] disabled:opacity-50">
+                    {actionLoading ? "..." :
+                      activeDelivery.status === "en_route" ? "Picked Up" :
+                      activeDelivery.status === "picked_up" ? "Delivered" : "Update"}
                   </button>
                 </div>
               </motion.div>

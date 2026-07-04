@@ -190,6 +190,16 @@ export type DeliveryType =
   | "document"
   | "student_to_student";
 
+// Deliveries have a package-specific lifecycle: the rider heads to pickup
+// (en_route), collects the item (picked_up), then drops it off (delivered).
+export type DeliveryStatus =
+  | "searching"
+  | "accepted"
+  | "en_route"
+  | "picked_up"
+  | "delivered"
+  | "cancelled";
+
 export interface Ride {
   id: string;
   passenger_id: string;
@@ -226,7 +236,7 @@ export interface Delivery {
   package_size: "small" | "medium" | "large";
   estimated_fee: number;
   actual_fee?: number;
-  status: RideStatus;
+  status: DeliveryStatus;
   tracking_code: string;
   payment_method: string;
   payment_status: "pending" | "paid";
