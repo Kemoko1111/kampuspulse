@@ -34,7 +34,13 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   const pathname = request.nextUrl.pathname;
 
-  if (user && AUTH_ROUTES.some((r) => pathname.startsWith(r))) {
+  // A password-recovery link authenticates the user and lands them back on
+  // /reset-password on purpose — the "already logged in, bounce off auth
+  // pages" rule below would otherwise redirect them away before they can
+  // actually set a new password. See resetPassword() in auth-context.tsx.
+  const isPasswordRecovery = pathname.startsWith("/reset-password") && request.nextUrl.searchParams.get("recovery") === "1";
+
+  if (user && !isPasswordRecovery && AUTH_ROUTES.some((r) => pathname.startsWith(r))) {
     const { data: profile } = await supabase
       .from("profiles")
       .select("role")

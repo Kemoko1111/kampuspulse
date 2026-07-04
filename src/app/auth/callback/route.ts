@@ -45,29 +45,47 @@ export async function GET(request: NextRequest) {
 
     const regDataCookie = cookieStore.get("kampuspulse_reg_data");
     if (regDataCookie) {
-      try {
-        const regData = JSON.parse(decodeURIComponent(regDataCookie.value));
+      // This cookie is set (register/page.tsx) before redirecting to Google and
+      // is only meant to finish profile setup for that exact signup. It's
+      // client-set, non-httpOnly, and lives for up to an hour — with no other
+      // check, it used to get applied to whichever account next completed a
+      // Google sign-in in that browser, including a *different, pre-existing*
+      // user just logging in (e.g. an abandoned registration attempt, then a
+      // normal login on the same device/browser minutes later) — silently
+      // overwriting their real name/phone/role/status with stale data from
+      // someone else's registration form. Guard: only ever apply it to an
+      // auth user created in the last couple minutes, i.e. genuinely
+      // completing signup in *this* OAuth round-trip, never a returning user.
+      const userAgeMs = Date.now() - new Date(sessionData.user.created_at).getTime();
+      const isFreshSignup = userAgeMs >= 0 && userAgeMs < 2 * 60 * 1000;
 
-        // regData comes from a client-set, non-httpOnly cookie — never trust it for
-        // privileged fields. Only "student"/"rider" are allowed here; anything else
-        // (e.g. a tampered "admin") is discarded in favor of the safe default.
-        const allowedRoles = ["student", "rider"];
-        const role = allowedRoles.includes(regData.role) ? regData.role : "student";
+      if (isFreshSignup) {
+        try {
+          const regData = JSON.parse(decodeURIComponent(regDataCookie.value));
 
-        await supabase.from("profiles").update({
-          full_name: regData.full_name || sessionData.user.user_metadata?.full_name,
-          role,
-          phone: regData.phone,
-          student_id: regData.student_id,
-          department: regData.department,
-          hall_of_residence: regData.hall_of_residence,
-          status: role === "student" ? "active" : "pending",
-        } as never).eq("user_id", sessionData.user.id);
+          // regData comes from a client-set, non-httpOnly cookie — never trust it for
+          // privileged fields. Only "student"/"rider" are allowed here; anything else
+          // (e.g. a tampered "admin") is discarded in favor of the safe default.
+          const allowedRoles = ["student", "rider"];
+          const role = allowedRoles.includes(regData.role) ? regData.role : "student";
 
-        response.cookies.delete("kampuspulse_reg_data");
-      } catch (e) {
-        console.error("Failed to parse registration cookie", e);
+          await supabase.from("profiles").update({
+            full_name: regData.full_name || sessionData.user.user_metadata?.full_name,
+            role,
+            phone: regData.phone,
+            student_id: regData.student_id,
+            department: regData.department,
+            hall_of_residence: regData.hall_of_residence,
+            status: role === "student" ? "active" : "pending",
+          } as never).eq("user_id", sessionData.user.id);
+        } catch (e) {
+          console.error("Failed to parse registration cookie", e);
+        }
       }
+
+      // Always clear it after one OAuth round-trip regardless of outcome —
+      // it should never be retried against a later, unrelated sign-in.
+      response.cookies.delete("kampuspulse_reg_data");
     }
 
     return response;

@@ -187,6 +187,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
+    try {
+      const token = await requestFcmToken();
+      if (token) {
+        await fetch("/api/fcm/register", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token }),
+        });
+      }
+    } catch {
+      // best-effort — don't block sign-out on notification cleanup
+    }
     await supabase.auth.signOut();
     setUser(null);
     setProfile(null);
@@ -195,8 +207,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const resetPassword = async (email: string) => {
+    // ?recovery=1 marks this specific redirect as "just completed the email
+    // reset link", not "an already-logged-in user browsing to this page" —
+    // /reset-password/page.tsx and middleware.ts both key off it to show the
+    // actual new-password form instead of bouncing the user away.
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+      redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/reset-password?recovery=1")}`,
     });
     return { error: error?.message ?? null };
   };

@@ -17,6 +17,11 @@ export async function signInWithGoogle(
     provider: "google",
     options: {
       redirectTo: getOAuthCallbackUrl(next),
+      // Without this, Google silently re-authenticates with whichever Google
+      // account is already active in the browser instead of showing the
+      // account chooser — so "sign in with a different account" silently
+      // logged back into whatever account was last used on that device.
+      queryParams: { prompt: "select_account" },
     },
   });
 
