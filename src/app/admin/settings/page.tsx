@@ -1,26 +1,63 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import {
-  Settings, User, Shield, Bell, Bike, CreditCard, AlertTriangle, Trash2, RotateCcw, ExternalLink
+  Settings, User, Shield, Bell, Bike, CreditCard, AlertTriangle, Trash2, RotateCcw, ExternalLink, Loader2
 } from "lucide-react";
 import { PageHeader } from "@/components/admin/page-header";
 import { useAuth } from "@/contexts/auth-context";
+import { apiFetch } from "@/lib/api-client";
+import { toast } from "react-hot-toast";
 import Link from "next/link";
+
+const DEFAULT_SETTINGS = {
+  orderNotifications: true,
+  autoAssignRiders: false,
+  requireVerification: true,
+  maintenanceMode: false,
+};
 
 export default function SettingsPage() {
   const { profile } = useAuth();
-  const [settings, setSettings] = useState({
-    orderNotifications: true,
-    autoAssignRiders: false,
-    requireVerification: true,
-    maintenanceMode: false,
-  });
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [loading, setLoading] = useState(true);
+  const [clearingLogs, setClearingLogs] = useState(false);
 
-  const handleToggle = (key: keyof typeof settings) => {
-    setSettings(prev => ({ ...prev, [key]: !prev[key] }));
+  useEffect(() => {
+    fetch("/api/admin/settings")
+      .then((res) => res.json())
+      .then((res) => { if (res.data) setSettings(res.data); })
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleToggle = async (key: keyof typeof settings) => {
+    const next = { ...settings, [key]: !settings[key] };
+    setSettings(next);
+    try {
+      await apiFetch("/api/admin/settings", {
+        method: "PATCH",
+        body: JSON.stringify({ [key]: next[key] }),
+      });
+    } catch {
+      setSettings(settings);
+      toast.error("Failed to save setting");
+    }
   };
+
+  const handleClearLogs = useCallback(async () => {
+    if (!confirm("Permanently delete all admin action logs? This cannot be undone.")) return;
+    setClearingLogs(true);
+    try {
+      const res = await apiFetch("/api/admin/logs", { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      toast.success("Admin logs cleared");
+    } catch {
+      toast.error("Failed to clear logs");
+    } finally {
+      setClearingLogs(false);
+    }
+  }, []);
 
   const handleDangerAction = (action: string) => {
     alert(`The ${action} feature is coming soon.`);
@@ -134,9 +171,11 @@ export default function SettingsPage() {
             </button>
           </div>
         </div>
-        <div className="p-4 bg-white/5 text-center">
-          <p className="text-sm text-muted-foreground italic">Settings changes will be fully functional in a future update.</p>
-        </div>
+        {loading && (
+          <div className="p-4 bg-white/5 text-center flex items-center justify-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading saved settings…
+          </div>
+        )}
       </motion.div>
 
       {/* Danger Zone */}
@@ -150,8 +189,8 @@ export default function SettingsPage() {
         <div className="p-6 space-y-4">
           <p className="text-sm text-muted-foreground mb-6">These actions are irreversible. Proceed with extreme caution.</p>
           <div className="flex items-center gap-4">
-            <button onClick={() => handleDangerAction("Clear Logs")} className="px-4 py-2.5 rounded-xl border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors flex items-center gap-2 text-sm font-semibold">
-              <Trash2 className="w-4 h-4" /> Clear All Logs
+            <button onClick={handleClearLogs} disabled={clearingLogs} className="px-4 py-2.5 rounded-xl border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors flex items-center gap-2 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed">
+              {clearingLogs ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />} Clear All Logs
             </button>
             <button onClick={() => handleDangerAction("Reset Dashboard")} className="px-4 py-2.5 rounded-xl border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors flex items-center gap-2 text-sm font-semibold">
               <RotateCcw className="w-4 h-4" /> Reset Dashboard
