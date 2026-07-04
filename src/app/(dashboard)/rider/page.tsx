@@ -2,6 +2,7 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect, useCallback, useRef } from "react";
+import Link from "next/link";
 import dynamic from "next/dynamic";
 import {
   Bike, Navigation, Clock,
@@ -12,7 +13,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { apiFetch } from "@/lib/api-client";
 import { toast } from "react-hot-toast";
 import { createClient } from "@/lib/supabase/client";
-import type { Ride } from "@/types";
+import type { Ride, Profile } from "@/types";
 
 const GoogleMap = dynamic(
   () => import("@/components/maps/GoogleMap"),
@@ -27,6 +28,7 @@ export default function RiderDashboard() {
   const [riderLocation, setRiderLocation] = useState<[number, number]>(UCC_CENTER);
   const [incomingRide, setIncomingRide] = useState<Ride | null>(null);
   const [activeRide, setActiveRide] = useState<Ride | null>(null);
+  const [activePassenger, setActivePassenger] = useState<Profile | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [todayEarnings, setTodayEarnings] = useState(0);
   const [locationLoading, setLocationLoading] = useState(true);
@@ -40,6 +42,27 @@ export default function RiderDashboard() {
   useEffect(() => {
     activeRideRef.current = activeRide;
   }, [activeRide]);
+
+  // The realtime ride payload and the PATCH /api/rides/:id response are both
+  // plain row updates with no `passenger` relation attached, so we fetch the
+  // full ride (which does join in the passenger's phone) once per active ride
+  // to power the Call/Chat actions below.
+  useEffect(() => {
+    if (!activeRide?.id) {
+      setActivePassenger(null);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/rides/${activeRide.id}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (!cancelled && json?.data?.passenger) setActivePassenger(json.data.passenger);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [activeRide?.id]);
 
   const fetchTodayEarnings = useCallback(async () => {
     if (!profile?.id) return;
@@ -434,12 +457,21 @@ export default function RiderDashboard() {
                 </div>
 
                 <div className="p-4 flex gap-3">
-                  <button className="flex-1 py-3 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center gap-2 font-medium hover:bg-white/10">
-                    <Phone className="w-4 h-4" /> Call
-                  </button>
-                  <button className="flex-1 py-3 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center gap-2 font-medium hover:bg-white/10">
+                  {activePassenger?.phone ? (
+                    <a href={`tel:${activePassenger.phone}`}
+                      className="flex-1 py-3 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center gap-2 font-medium hover:bg-white/10">
+                      <Phone className="w-4 h-4" /> Call
+                    </a>
+                  ) : (
+                    <button disabled
+                      className="flex-1 py-3 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center gap-2 font-medium opacity-50 cursor-not-allowed">
+                      <Phone className="w-4 h-4" /> Call
+                    </button>
+                  )}
+                  <Link href="/messages"
+                    className="flex-1 py-3 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center gap-2 font-medium hover:bg-white/10">
                     <MessageSquare className="w-4 h-4" /> Chat
-                  </button>
+                  </Link>
                   <button
                     onClick={handleArrived}
                     disabled={actionLoading}

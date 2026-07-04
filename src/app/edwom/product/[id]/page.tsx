@@ -11,6 +11,7 @@ import {
   Flame, MapPin, Loader2, Package,
 } from "lucide-react";
 import { useCart } from "@/hooks/useCart";
+import { toast } from "react-hot-toast";
 import type { Product, ProductCondition } from "@/types";
 
 const conditionLabels: Record<ProductCondition, string> = {
@@ -53,6 +54,20 @@ export default function ProductPage() {
     const ok = await addItem(product.id, 1);
     if (ok) setAddedToCart(true);
     setAdding(false);
+  };
+
+  const handleShare = async () => {
+    if (!product) return;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: product.title, url: window.location.href });
+      } catch {
+        // user cancelled the share sheet — no-op
+      }
+    } else {
+      await navigator.clipboard.writeText(window.location.href);
+      toast.success("Link copied to clipboard");
+    }
   };
 
   if (loading) {
@@ -203,7 +218,7 @@ export default function ProductPage() {
                 className="w-12 h-12 glass border border-white/10 rounded-xl flex items-center justify-center hover:bg-white/10 transition-all">
                 <Heart className={`w-5 h-5 ${wishlist ? "fill-red-400 text-red-400" : "text-muted-foreground"}`} />
               </button>
-              <button className="w-12 h-12 glass border border-white/10 rounded-xl flex items-center justify-center hover:bg-white/10 transition-all">
+              <button onClick={handleShare} className="w-12 h-12 glass border border-white/10 rounded-xl flex items-center justify-center hover:bg-white/10 transition-all">
                 <Share2 className="w-5 h-5 text-muted-foreground" />
               </button>
             </div>
