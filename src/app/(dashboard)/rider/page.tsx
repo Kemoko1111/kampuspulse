@@ -35,11 +35,15 @@ export default function RiderDashboard() {
   const { profile } = useAuth();
   const [isOnline, setIsOnline] = useState(false);
   const [riderLocation, setRiderLocation] = useState<[number, number]>(UCC_CENTER);
-  const [incomingRide, setIncomingRide] = useState<Ride | null>(null);
+  // Broadcast model: pending* are the unclaimed 'searching' requests every
+  // online rider sees; the first entry is surfaced as the incoming request.
+  const [pendingRides, setPendingRides] = useState<Ride[]>([]);
+  const [pendingDeliveries, setPendingDeliveries] = useState<DeliveryJob[]>([]);
   const [activeRide, setActiveRide] = useState<Ride | null>(null);
   const [activePassenger, setActivePassenger] = useState<Profile | null>(null);
-  const [incomingDelivery, setIncomingDelivery] = useState<DeliveryJob | null>(null);
   const [activeDelivery, setActiveDelivery] = useState<DeliveryJob | null>(null);
+  const incomingRide = isOnline ? (pendingRides[0] ?? null) : null;
+  const incomingDelivery = isOnline ? (pendingDeliveries[0] ?? null) : null;
   const [actionLoading, setActionLoading] = useState(false);
   const [todayEarnings, setTodayEarnings] = useState(0);
   const [locationLoading, setLocationLoading] = useState(true);
@@ -51,6 +55,9 @@ export default function RiderDashboard() {
   const activeDeliveryRef = useRef<DeliveryJob | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const locationWatchRef = useRef<number | null>(null);
+  // Read inside realtime callbacks (which are registered once) without
+  // re-subscribing when these change.
+  const isOnlineRef = useRef(false);
   const supabase = createClient();
 
   useEffect(() => {
@@ -60,6 +67,31 @@ export default function RiderDashboard() {
   useEffect(() => {
     activeDeliveryRef.current = activeDelivery;
   }, [activeDelivery]);
+
+  useEffect(() => {
+    isOnlineRef.current = isOnline;
+    // Going offline clears the broadcast queue; going online repopulates it
+    // via the rehydration effect below.
+    if (!isOnline) {
+      setPendingRides([]);
+      setPendingDeliveries([]);
+    }
+  }, [isOnline]);
+
+  const addPendingRide = useCallback((ride: Ride) => {
+    if (!isOnlineRef.current || activeRideRef.current) return;
+    setPendingRides((prev) => (prev.some((r) => r.id === ride.id) ? prev : [...prev, ride]));
+  }, []);
+  const removePendingRide = useCallback((id: string) => {
+    setPendingRides((prev) => prev.filter((r) => r.id !== id));
+  }, []);
+  const addPendingDelivery = useCallback((d: DeliveryJob) => {
+    if (!isOnlineRef.current || activeDeliveryRef.current) return;
+    setPendingDeliveries((prev) => (prev.some((x) => x.id === d.id) ? prev : [...prev, d]));
+  }, []);
+  const removePendingDelivery = useCallback((id: string) => {
+    setPendingDeliveries((prev) => prev.filter((x) => x.id !== id));
+  }, []);
 
   // The realtime ride payload and the PATCH /api/rides/:id response are both
   // plain row updates with no `passenger` relation attached, so we fetch the
@@ -121,34 +153,53 @@ export default function RiderDashboard() {
         if (row?.is_available) setIsOnline(true);
       });
 
+    // Any ride already claimed by me (survives reload/navigation mid-trip).
     supabase
       .from("rides")
       .select("*")
       .eq("rider_id", profile.id)
-      .in("status", ["accepted", "en_route", "arrived", "in_progress"])
+      .in("status", ["en_route", "arrived", "in_progress"])
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle()
       .then(({ data }) => {
-        if (cancelled || !data) return;
-        const ride = data as Ride;
-        if (ride.status === "accepted") setIncomingRide(ride);
-        else setActiveRide(ride);
+        if (!cancelled && data) setActiveRide(data as Ride);
       });
 
     supabase
       .from("deliveries")
       .select("*")
       .eq("rider_id", profile.id)
-      .in("status", ["accepted", "en_route", "picked_up"])
+      .in("status", ["en_route", "picked_up"])
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle()
       .then(({ data }) => {
-        if (cancelled || !data) return;
-        const d = data as DeliveryJob;
-        if (d.status === "accepted") setIncomingDelivery(d);
-        else setActiveDelivery(d);
+        if (!cancelled && data) setActiveDelivery(data as DeliveryJob);
+      });
+
+    // Broadcast queue: all currently-open (unclaimed) requests, so a rider who
+    // opens the app sees requests placed before they came online.
+    supabase
+      .from("rides")
+      .select("*")
+      .eq("status", "searching")
+      .is("rider_id", null)
+      .order("created_at", { ascending: false })
+      .limit(10)
+      .then(({ data }) => {
+        if (!cancelled && data) setPendingRides(data as Ride[]);
+      });
+
+    supabase
+      .from("deliveries")
+      .select("*")
+      .eq("status", "searching")
+      .is("rider_id", null)
+      .order("created_at", { ascending: false })
+      .limit(10)
+      .then(({ data }) => {
+        if (!cancelled && data) setPendingDeliveries(data as DeliveryJob[]);
       });
 
     return () => { cancelled = true; };
@@ -197,89 +248,67 @@ export default function RiderDashboard() {
     };
   }, [updateLocation]);
 
+  // BROADCAST channel: new/updated 'searching' requests visible to every
+  // online rider (RLS scopes this to unassigned requests). INSERT adds to the
+  // queue; an UPDATE that moves it out of 'searching' (someone claimed it, when
+  // still visible) removes it. Claimed-away requests that RLS hides are also
+  // handled at claim time (the atomic claim fails → we drop it).
   useEffect(() => {
     if (!profile?.id) return;
 
     const channel = supabase
-      .channel(`rider-rides:${profile.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "rides",
-          filter: `rider_id=eq.${profile.id}`,
-        },
-        (payload) => {
-          const ride = payload.new as Ride;
-          if (ride.status === "accepted" || ride.status === "searching") {
-            setIncomingRide(ride);
-          }
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "rides",
-          filter: `rider_id=eq.${profile.id}`,
-        },
-        (payload) => {
-          const ride = payload.new as Ride;
-          if (ride.status === "accepted" && !activeRideRef.current) {
-            setIncomingRide(ride);
-          } else if (["en_route", "arrived", "in_progress"].includes(ride.status)) {
-            setActiveRide(ride);
-            setIncomingRide(null);
-          } else if (ride.status === "completed" || ride.status === "cancelled") {
-            setActiveRide(null);
-            setIncomingRide(null);
-            if (ride.status === "completed") fetchTodayEarnings();
-          }
-        }
-      )
+      .channel("ride-requests")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "rides" }, (payload) => {
+        const ride = payload.new as Ride;
+        if (ride.status === "searching" && !ride.rider_id) addPendingRide(ride);
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "rides" }, (payload) => {
+        const ride = payload.new as Ride;
+        if (ride.status !== "searching" || ride.rider_id) removePendingRide(ride.id);
+      })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "deliveries" }, (payload) => {
+        const d = payload.new as DeliveryJob;
+        if (d.status === "searching" && !d.rider_id) addPendingDelivery(d);
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "deliveries" }, (payload) => {
+        const d = payload.new as DeliveryJob;
+        if (d.status !== "searching" || d.rider_id) removePendingDelivery(d.id);
+      })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [profile?.id, supabase, fetchTodayEarnings]);
+  }, [profile?.id, supabase, addPendingRide, removePendingRide, addPendingDelivery, removePendingDelivery]);
 
-  // Deliveries: same pattern as rides. DeliveryService assigns the nearest
-  // rider by setting rider_id + status 'accepted' (an UPDATE), so the assigned
-  // rider is notified via the UPDATE handler; INSERT is covered too for safety.
+  // MY-JOBS channel: updates to the ride/delivery this rider has claimed, so
+  // the active card advances and clears on completion/cancellation.
   useEffect(() => {
     if (!profile?.id) return;
 
     const channel = supabase
-      .channel(`rider-deliveries:${profile.id}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "deliveries", filter: `rider_id=eq.${profile.id}` },
-        (payload) => {
-          const d = payload.new as DeliveryJob;
-          if (d.status === "accepted") setIncomingDelivery(d);
+      .channel(`rider-jobs:${profile.id}`)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "rides", filter: `rider_id=eq.${profile.id}` }, (payload) => {
+        const ride = payload.new as Ride;
+        if (["en_route", "arrived", "in_progress"].includes(ride.status)) {
+          setActiveRide(ride);
+          removePendingRide(ride.id);
+        } else if (ride.status === "completed" || ride.status === "cancelled") {
+          setActiveRide(null);
+          if (ride.status === "completed") fetchTodayEarnings();
         }
-      )
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "deliveries", filter: `rider_id=eq.${profile.id}` },
-        (payload) => {
-          const d = payload.new as DeliveryJob;
-          if (d.status === "accepted" && !activeDeliveryRef.current) {
-            setIncomingDelivery(d);
-          } else if (["en_route", "picked_up"].includes(d.status)) {
-            setActiveDelivery(d);
-            setIncomingDelivery(null);
-          } else if (d.status === "delivered" || d.status === "cancelled") {
-            setActiveDelivery(null);
-            setIncomingDelivery(null);
-          }
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "deliveries", filter: `rider_id=eq.${profile.id}` }, (payload) => {
+        const d = payload.new as DeliveryJob;
+        if (["en_route", "picked_up"].includes(d.status)) {
+          setActiveDelivery(d);
+          removePendingDelivery(d.id);
+        } else if (d.status === "delivered" || d.status === "cancelled") {
+          setActiveDelivery(null);
         }
-      )
+      })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [profile?.id, supabase]);
+  }, [profile?.id, supabase, fetchTodayEarnings, removePendingRide, removePendingDelivery]);
 
   useEffect(() => {
     if (incomingRide && !activeRide) {
@@ -310,11 +339,15 @@ export default function RiderDashboard() {
       setTimeoutSeconds(30);
       if (timeoutRef.current) clearInterval(timeoutRef.current);
       
+      const currentId = incomingRide.id;
       timeoutRef.current = setInterval(() => {
         setTimeoutSeconds((prev) => {
           if (prev <= 1) {
             if (timeoutRef.current) clearInterval(timeoutRef.current);
-            handleDecline();
+            // Broadcast model: timing out just dismisses THIS request from my
+            // own queue — it does NOT cancel the ride (another rider may take
+            // it). The next pending request, if any, then surfaces.
+            removePendingRide(currentId);
             return 0;
           }
           return prev - 1;
@@ -327,25 +360,24 @@ export default function RiderDashboard() {
     return () => {
       if (timeoutRef.current) clearInterval(timeoutRef.current);
     };
-    // handleDecline is intentionally omitted: it's redefined every render (not
-    // memoized), so including it would reset this countdown on every re-render
-    // instead of only when the ride actually changes. It only reads state
-    // (incomingRide) already covered by this effect's deps, so no staleness.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [incomingRide, activeRide]);
+  }, [incomingRide, activeRide, removePendingRide]);
 
   const handleAccept = async () => {
     if (!incomingRide) return;
+    const rideId = incomingRide.id;
     setActionLoading(true);
     try {
-      const res = await apiFetch(`/api/rides/${incomingRide.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ status: "en_route" }),
-      });
-      if (!res.ok) throw new Error("Failed to accept ride");
-      const { data } = await res.json();
-      setActiveRide(data);
-      setIncomingRide(null);
+      // Claim it first-come. A 409 means another rider beat us to it.
+      const res = await apiFetch(`/api/rides/${rideId}/claim`, { method: "POST" });
+      const json = await res.json();
+      if (res.status === 409) {
+        toast.error("That ride was just taken by another rider");
+        removePendingRide(rideId);
+        return;
+      }
+      if (!res.ok) throw new Error(json.error || "Failed to accept ride");
+      setActiveRide(json.data);
+      removePendingRide(rideId);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to accept ride");
     } finally {
@@ -353,21 +385,10 @@ export default function RiderDashboard() {
     }
   };
 
-  const handleDecline = async () => {
-    if (!incomingRide) return;
-    setActionLoading(true);
-    try {
-      const res = await apiFetch(`/api/rides/${incomingRide.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ status: "cancelled" }),
-      });
-      if (!res.ok) throw new Error("Failed to decline ride");
-      setIncomingRide(null);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to decline ride");
-    } finally {
-      setActionLoading(false);
-    }
+  // Decline just removes it from THIS rider's view (the request stays open for
+  // other riders) — no server call.
+  const handleDecline = () => {
+    if (incomingRide) removePendingRide(incomingRide.id);
   };
 
   const handleArrived = async () => {
@@ -398,16 +419,19 @@ export default function RiderDashboard() {
 
   const handleAcceptDelivery = async () => {
     if (!incomingDelivery) return;
+    const deliveryId = incomingDelivery.id;
     setActionLoading(true);
     try {
-      const res = await apiFetch(`/api/deliveries/${incomingDelivery.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ status: "en_route" }),
-      });
-      if (!res.ok) throw new Error("Failed to accept delivery");
-      const { data } = await res.json();
-      setActiveDelivery(data);
-      setIncomingDelivery(null);
+      const res = await apiFetch(`/api/deliveries/${deliveryId}/claim`, { method: "POST" });
+      const json = await res.json();
+      if (res.status === 409) {
+        toast.error("That delivery was just taken by another rider");
+        removePendingDelivery(deliveryId);
+        return;
+      }
+      if (!res.ok) throw new Error(json.error || "Failed to accept delivery");
+      setActiveDelivery(json.data);
+      removePendingDelivery(deliveryId);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to accept delivery");
     } finally {
@@ -415,21 +439,8 @@ export default function RiderDashboard() {
     }
   };
 
-  const handleDeclineDelivery = async () => {
-    if (!incomingDelivery) return;
-    setActionLoading(true);
-    try {
-      const res = await apiFetch(`/api/deliveries/${incomingDelivery.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ status: "cancelled" }),
-      });
-      if (!res.ok) throw new Error("Failed to decline delivery");
-      setIncomingDelivery(null);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to decline delivery");
-    } finally {
-      setActionLoading(false);
-    }
+  const handleDeclineDelivery = () => {
+    if (incomingDelivery) removePendingDelivery(incomingDelivery.id);
   };
 
   const handleDeliveryNext = async () => {

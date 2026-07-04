@@ -2,7 +2,7 @@ import type { TypedSupabaseClient } from "@/lib/supabase/types";
 import { AppError } from "@/lib/errors/app-error";
 import { RideRepository } from "@/lib/repositories/ride.repository";
 import { NotificationRepository } from "@/lib/repositories/notification.repository";
-import { calculateFare, findNearestRider, type FareSettings } from "@/lib/services/fare.service";
+import { calculateFare, type FareSettings } from "@/lib/services/fare.service";
 
 const DEFAULT_DELIVERY_FARE: FareSettings = { base_fare: 8, per_km_rate: 3, per_min_rate: 0.75 };
 
@@ -83,39 +83,57 @@ export class DeliveryService {
 
     if (error) throw error;
 
-    const matchedRider = await this.matchRider(
-      (delivery as { id: string }).id,
-      params.pickupLat,
-      params.pickupLng
-    );
-    return { delivery, matchedRider };
+    // Broadcast model (same as rides): leave the delivery 'searching' with no
+    // rider_id so any online rider can claim it; ping available riders.
+    await this.notifyAvailableRiders((delivery as { id: string }).id);
+    return { delivery, matchedRider: null };
   }
 
-  // Same matching as rides — reuse findAvailableRiders (rider_profiles based,
-  // delivery-agnostic) and the nearest-rider helper.
-  async matchRider(deliveryId: string, pickupLat: number, pickupLng: number) {
-    const { data: riders, error } = await this.rideRepo.findAvailableRiders();
+  private async notifyAvailableRiders(deliveryId: string) {
+    const { data: riders } = await this.rideRepo.findAvailableRiders();
+    const list = (riders || []) as { user_id: string }[];
+    await Promise.all(
+      list.map((r) =>
+        this.notifRepo.create({
+          user_id: r.user_id,
+          type: "delivery_request",
+          title: "New Delivery Request",
+          body: "A new delivery request is available. Open the driver app to accept.",
+          data: { delivery_id: deliveryId },
+        })
+      )
+    );
+  }
+
+  // Atomic first-come claim (see RideService.claimRide).
+  async claimDelivery(adminClient: TypedSupabaseClient, deliveryId: string, riderProfileId: string) {
+    const { data, error } = await adminClient
+      .from("deliveries")
+      .update({ rider_id: riderProfileId, status: "en_route" } as never)
+      .eq("id", deliveryId)
+      .eq("status", "searching")
+      .is("rider_id", null)
+      .select()
+      .maybeSingle();
+
     if (error) throw error;
+    if (!data) throw new AppError("This delivery was already taken by another rider", 409, "ALREADY_CLAIMED");
 
-    type RiderWithLocation = { current_lat: number | null; current_lng: number | null; user_id: string };
-    const nearest = findNearestRider((riders || []) as RiderWithLocation[], pickupLat, pickupLng);
-    if (!nearest) return null;
-
-    const { error: updateError } = await this.rideRepo.updateDelivery(deliveryId, {
-      rider_id: nearest.user_id,
-      status: "accepted",
-    });
-    if (updateError) throw updateError;
-
-    await this.notifRepo.create({
-      user_id: nearest.user_id,
-      type: "delivery_request",
-      title: "New Delivery Request",
-      body: "You have a new delivery request nearby.",
-      data: { delivery_id: deliveryId },
-    });
-
-    return nearest;
+    const delivery = data as { id: string; sender_id: string; order_id: string | null };
+    if (delivery.sender_id) {
+      await this.notifRepo.create({
+        user_id: delivery.sender_id,
+        type: "delivery_update",
+        title: "Rider on the way!",
+        body: "A rider accepted your delivery and is heading to pickup.",
+        data: { delivery_id: deliveryId, status: "en_route" },
+      });
+    }
+    // Keep the linked order's status in sync (accepted → processing).
+    if (delivery.order_id) {
+      await adminClient.from("orders").update({ status: "processing" } as never).eq("id", delivery.order_id);
+    }
+    return delivery;
   }
 
   // Bridge from EDWOM: when an order is paid, create a delivery (seller ->
@@ -170,7 +188,8 @@ export class DeliveryService {
     });
     if (error || !delivery) return;
 
-    await this.matchRider((delivery as { id: string }).id, CAMPUS_CENTER.lat, CAMPUS_CENTER.lng);
+    // Broadcast to all online riders (first to accept claims it).
+    await this.notifyAvailableRiders((delivery as { id: string }).id);
   }
 
   async updateDeliveryStatus(deliveryId: string, profileId: string, status: string) {

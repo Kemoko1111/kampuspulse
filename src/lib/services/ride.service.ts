@@ -3,7 +3,7 @@ import type { Ride } from "@/types";
 import { AppError } from "@/lib/errors/app-error";
 import { RideRepository } from "@/lib/repositories/ride.repository";
 import { NotificationRepository } from "@/lib/repositories/notification.repository";
-import { calculateFare, findNearestRider, type FareSettings } from "@/lib/services/fare.service";
+import { calculateFare, type FareSettings } from "@/lib/services/fare.service";
 import { PaymentService } from "@/lib/services/payment.service";
 
 // Rider-driven steps (only the assigned rider taps through these, matching
@@ -72,34 +72,57 @@ export class RideService {
 
     if (error) throw error;
 
-    const matchedRider = await this.matchRider((ride as { id: string }).id, params.pickupLat, params.pickupLng);
-    return { ride, matchedRider };
+    // Broadcast model: the ride stays 'searching' with no rider_id. Every
+    // online rider sees it (RLS: rides_select_searching_for_riders) and can
+    // claim it first-come. We just ping available riders so they look.
+    await this.notifyAvailableRiders((ride as { id: string }).id);
+    return { ride, matchedRider: null };
   }
 
-  async matchRider(rideId: string, pickupLat: number, pickupLng: number) {
-    const { data: riders, error } = await this.rideRepo.findAvailableRiders();
+  private async notifyAvailableRiders(rideId: string) {
+    const { data: riders } = await this.rideRepo.findAvailableRiders();
+    const list = (riders || []) as { user_id: string }[];
+    await Promise.all(
+      list.map((r) =>
+        this.notifRepo.create({
+          user_id: r.user_id,
+          type: "ride_request",
+          title: "New Ride Request",
+          body: "A new ride request is available. Open the driver app to accept.",
+          data: { ride_id: rideId },
+        })
+      )
+    );
+  }
+
+  // Atomic first-come claim: only succeeds if the ride is still unassigned and
+  // searching, so two riders tapping Accept at once can't both get it. Runs on
+  // the service-role client passed in by the route (RLS would otherwise block a
+  // rider from updating a ride that isn't yet theirs).
+  async claimRide(adminClient: TypedSupabaseClient, rideId: string, riderProfileId: string) {
+    const { data, error } = await adminClient
+      .from("rides")
+      .update({ rider_id: riderProfileId, status: "en_route" } as never)
+      .eq("id", rideId)
+      .eq("status", "searching")
+      .is("rider_id", null)
+      .select()
+      .maybeSingle();
+
     if (error) throw error;
+    if (!data) throw new AppError("This ride was already taken by another rider", 409, "ALREADY_CLAIMED");
 
-    type RiderWithLocation = { current_lat: number | null; current_lng: number | null; user_id: string };
-    const nearest = findNearestRider((riders || []) as RiderWithLocation[], pickupLat, pickupLng);
-    if (!nearest) return null;
-
-    const { error: updateError } = await this.rideRepo.update(rideId, {
-      rider_id: nearest.user_id,
-      status: "accepted",
-    });
-
-    if (updateError) throw updateError;
-
-    await this.notifRepo.create({
-      user_id: nearest.user_id,
-      type: "ride_accepted",
-      title: "New Ride Request",
-      body: "You have a new ride request nearby.",
-      data: { ride_id: rideId },
-    });
-
-    return nearest;
+    const ride = data as Ride;
+    if (ride.passenger_id) {
+      await this.notifRepo.create({
+        user_id: ride.passenger_id,
+        type: "ride_update",
+        title: "Rider on the way!",
+        body: "A rider accepted your request and is heading to your pickup.",
+        data: { ride_id: rideId, status: "en_route" },
+      });
+    }
+    return ride;
   }
 
   async updateRideStatus(rideId: string, profileId: string, status: string) {
