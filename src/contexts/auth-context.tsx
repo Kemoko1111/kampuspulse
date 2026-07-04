@@ -78,8 +78,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const updates: Partial<Profile> = {};
         let needsUpdate = false;
 
+        // Never touch an existing admin's role/status here. user_metadata.role
+        // is whatever was picked at original signup (student/rider — admin was
+        // never self-selectable) and is never updated after a promotion to
+        // admin, so this sync used to silently demote admins back to
+        // student/rider on their very next login: profileData.role ("admin")
+        // !== meta.role ("student") was true, and the privilege-escalation
+        // trigger allows an admin to change their own row, so the demotion
+        // went through every time. Confirmed live 2026-07-04 and fixed.
         const selfSelectableRoles = ["student", "rider"];
         if (
+          profileData.role !== "admin" &&
           selfSelectableRoles.includes(meta.role) &&
           profileData.role !== meta.role
         ) {
