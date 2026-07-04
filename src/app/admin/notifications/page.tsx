@@ -1,36 +1,79 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import {
-  Bell, Send, AlertTriangle, Megaphone, Loader2
+  Bell, Send, AlertCircle, CheckCircle2, Megaphone, Loader2
 } from "lucide-react";
+import { apiFetch } from "@/lib/api-client";
 import { PageHeader } from "@/components/admin/page-header";
 import { formatRelativeTime } from "@/lib/utils";
 
-const sampleNotifications = [
-  { id: 1, title: "Welcome to KampusPulse!", message: "We are glad to have you on board.", target: "Everyone", priority: "Normal", created_at: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString() },
-  { id: 2, title: "New feature: EZZYRIDE", message: "Try out our new campus ride-hailing service.", target: "All Students", priority: "Important", created_at: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString() },
-  { id: 3, title: "System maintenance notice", message: "The app will be down for 30 minutes tonight.", target: "Everyone", priority: "Urgent", created_at: new Date(Date.now() - 1000 * 60 * 60 * 72).toISOString() },
-];
+interface Broadcast {
+  id: string;
+  title: string;
+  body: string;
+  audience: "all" | "students" | "riders";
+  recipient_count: number;
+  created_at: string;
+}
+
+const audienceLabels: Record<Broadcast["audience"], string> = {
+  all: "Everyone",
+  students: "All Students",
+  riders: "All Riders",
+};
 
 export default function NotificationsPage() {
-  const [loading, setLoading] = useState(false);
+  const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
+  const [listLoading, setListLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     title: "",
-    message: "",
-    target: "Everyone",
-    priority: "Normal",
+    body: "",
+    audience: "all" as Broadcast["audience"],
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const fetchBroadcasts = useCallback(async () => {
+    setListLoading(true);
+    try {
+      const res = await fetch("/api/admin/notifications");
+      if (res.ok) {
+        const { data } = await res.json();
+        setBroadcasts(data || []);
+      }
+    } finally {
+      setListLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchBroadcasts(); }, [fetchBroadcasts]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      alert("Notification system integration coming soon! Your message would have been sent to: " + formData.target);
-      setFormData({ title: "", message: "", target: "Everyone", priority: "Normal" });
-    }, 1000);
+    setSending(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const res = await apiFetch("/api/admin/notifications", {
+        method: "POST",
+        body: JSON.stringify(formData),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setError(json.error || "Failed to send notification");
+        return;
+      }
+      setSuccess(`Sent to ${json.data.recipient_count} recipient${json.data.recipient_count === 1 ? "" : "s"}.`);
+      setFormData({ title: "", body: "", audience: "all" });
+      fetchBroadcasts();
+    } catch {
+      setError("Failed to send notification");
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -53,56 +96,53 @@ export default function NotificationsPage() {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="block text-xs text-muted-foreground mb-1.5 uppercase tracking-wider font-bold">Title</label>
-              <input 
-                required 
-                type="text" 
-                className="input-premium w-full" 
-                placeholder="Holiday Discount!" 
-                value={formData.title} 
-                onChange={e => setFormData({...formData, title: e.target.value})} 
+              <input
+                required
+                type="text"
+                className="input-premium w-full"
+                placeholder="Holiday Discount!"
+                value={formData.title}
+                onChange={e => setFormData({...formData, title: e.target.value})}
               />
             </div>
 
             <div>
               <label className="block text-xs text-muted-foreground mb-1.5 uppercase tracking-wider font-bold">Message</label>
-              <textarea 
-                required 
-                className="input-premium w-full min-h-[120px] resize-none py-3" 
-                placeholder="Enter your message here..." 
-                value={formData.message} 
-                onChange={e => setFormData({...formData, message: e.target.value})} 
+              <textarea
+                required
+                className="input-premium w-full min-h-[120px] resize-none py-3"
+                placeholder="Enter your message here..."
+                value={formData.body}
+                onChange={e => setFormData({...formData, body: e.target.value})}
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs text-muted-foreground mb-1.5 uppercase tracking-wider font-bold">Target Audience</label>
-                <select 
-                  className="input-premium w-full appearance-none" 
-                  value={formData.target} 
-                  onChange={e => setFormData({...formData, target: e.target.value})}
-                >
-                  <option value="Everyone">Everyone</option>
-                  <option value="All Students">All Students</option>
-                  <option value="All Riders">All Riders</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs text-muted-foreground mb-1.5 uppercase tracking-wider font-bold">Priority</label>
-                <select 
-                  className="input-premium w-full appearance-none" 
-                  value={formData.priority} 
-                  onChange={e => setFormData({...formData, priority: e.target.value})}
-                >
-                  <option value="Normal">Normal</option>
-                  <option value="Important">Important</option>
-                  <option value="Urgent">Urgent</option>
-                </select>
-              </div>
+            <div>
+              <label className="block text-xs text-muted-foreground mb-1.5 uppercase tracking-wider font-bold">Target Audience</label>
+              <select
+                className="input-premium w-full appearance-none"
+                value={formData.audience}
+                onChange={e => setFormData({...formData, audience: e.target.value as Broadcast["audience"]})}
+              >
+                <option value="all">Everyone</option>
+                <option value="students">All Students</option>
+                <option value="riders">All Riders</option>
+              </select>
             </div>
 
-            <button type="submit" disabled={loading} className="w-full btn-primary flex justify-center items-center gap-2 mt-2">
-              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Send className="w-4 h-4" /> Send Notification</>}
+            {error && (
+              <div className="flex items-center gap-2 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
+              </div>
+            )}
+            {success && (
+              <div className="flex items-center gap-2 text-sm text-green-400 bg-green-500/10 border border-green-500/20 rounded-xl px-4 py-3">
+                <CheckCircle2 className="w-4 h-4 flex-shrink-0" /> {success}
+              </div>
+            )}
+
+            <button type="submit" disabled={sending} className="w-full btn-primary flex justify-center items-center gap-2 mt-2">
+              {sending ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Send className="w-4 h-4" /> Send Notification</>}
             </button>
           </form>
         </motion.div>
@@ -117,33 +157,38 @@ export default function NotificationsPage() {
           </div>
 
           <div className="flex-1 overflow-y-auto">
-            {sampleNotifications.map((n) => (
-              <div key={n.id} className="p-5 border-b border-white/5 flex items-start gap-4 hover:bg-white/5 transition-colors">
-                <div className={`mt-1 flex-shrink-0 ${n.priority === 'Urgent' ? 'text-red-400' : n.priority === 'Important' ? 'text-yellow-400' : 'text-blue-400'}`}>
-                  {n.priority === 'Urgent' ? <AlertTriangle className="w-5 h-5" /> : <Bell className="w-5 h-5" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2 mb-1">
-                    <h4 className="font-bold text-sm truncate">{n.title}</h4>
-                    <span className="text-xs text-muted-foreground flex-shrink-0">{formatRelativeTime(n.created_at)}</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{n.message}</p>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded bg-white/10 text-white">
-                      {n.target}
-                    </span>
-                    <span className={`text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded ${n.priority === 'Urgent' ? 'bg-red-500/20 text-red-400' : n.priority === 'Important' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-blue-500/20 text-blue-400'}`}>
-                      {n.priority}
-                    </span>
-                  </div>
-                </div>
+            {listLoading ? (
+              <div className="flex items-center justify-center py-16">
+                <Loader2 className="w-6 h-6 animate-spin text-purple-400" />
               </div>
-            ))}
-            <div className="p-6 text-center">
-              <p className="text-sm text-muted-foreground italic">
-                Notification history will sync automatically once the system is fully configured.
-              </p>
-            </div>
+            ) : broadcasts.length === 0 ? (
+              <div className="p-6 text-center">
+                <p className="text-sm text-muted-foreground italic">No broadcasts sent yet.</p>
+              </div>
+            ) : (
+              broadcasts.map((n) => (
+                <div key={n.id} className="p-5 border-b border-white/5 flex items-start gap-4 hover:bg-white/5 transition-colors">
+                  <div className="mt-1 flex-shrink-0 text-blue-400">
+                    <Bell className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <h4 className="font-bold text-sm truncate">{n.title}</h4>
+                      <span className="text-xs text-muted-foreground flex-shrink-0">{formatRelativeTime(n.created_at)}</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{n.body}</p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded bg-white/10 text-white">
+                        {audienceLabels[n.audience] || n.audience}
+                      </span>
+                      <span className="text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded bg-blue-500/20 text-blue-400">
+                        {n.recipient_count} recipient{n.recipient_count === 1 ? "" : "s"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </motion.div>
       </div>

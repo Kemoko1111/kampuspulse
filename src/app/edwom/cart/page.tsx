@@ -6,9 +6,10 @@ import Image from "next/image";
 import { useState } from "react";
 import {
   ShoppingCart, Trash2, Plus, Minus, ArrowLeft,
-  ArrowRight, Tag, ShieldCheck, Truck, Loader2, Package,
+  ArrowRight, Tag, ShieldCheck, Truck, Loader2, Package, X,
 } from "lucide-react";
 import { useCart } from "@/hooks/useCart";
+import { apiFetch } from "@/lib/api-client";
 
 interface CartProduct {
   id: string;
@@ -24,10 +25,18 @@ interface CartItemRow {
   product: CartProduct;
 }
 
+interface AppliedPromo {
+  code: string;
+  discount_type: "percentage" | "fixed";
+  discount_value: number;
+}
+
 export default function CartPage() {
   const { items, loading, updateQuantity, removeItem, total } = useCart();
   const [promoCode, setPromoCode] = useState("");
-  const [promoApplied, setPromoApplied] = useState(false);
+  const [promoLoading, setPromoLoading] = useState(false);
+  const [promoError, setPromoError] = useState<string | null>(null);
+  const [appliedPromo, setAppliedPromo] = useState<AppliedPromo | null>(null);
 
   const cartItems = items as CartItemRow[];
 
@@ -42,8 +51,42 @@ export default function CartPage() {
 
   const subtotal = total;
   const deliveryFee = 5;
-  const discount = promoApplied ? Math.round(subtotal * 0.1) : 0;
+  const discount = appliedPromo
+    ? appliedPromo.discount_type === "percentage"
+      ? Math.round(subtotal * (appliedPromo.discount_value / 100))
+      : Math.min(appliedPromo.discount_value, subtotal)
+    : 0;
   const orderTotal = subtotal + deliveryFee - discount;
+
+  const handleApplyPromo = async () => {
+    if (!promoCode || promoLoading) return;
+    setPromoLoading(true);
+    setPromoError(null);
+    try {
+      const res = await apiFetch("/api/promotions/validate", {
+        method: "POST",
+        body: JSON.stringify({ code: promoCode, orderAmount: subtotal }),
+      });
+      const json = await res.json();
+      if (res.ok && json.valid) {
+        setAppliedPromo(json.data);
+      } else {
+        setAppliedPromo(null);
+        setPromoError(json.error || "Invalid promo code");
+      }
+    } catch {
+      setAppliedPromo(null);
+      setPromoError("Failed to validate promo code");
+    } finally {
+      setPromoLoading(false);
+    }
+  };
+
+  const handleRemovePromo = () => {
+    setAppliedPromo(null);
+    setPromoError(null);
+    setPromoCode("");
+  };
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
@@ -144,16 +187,30 @@ export default function CartPage() {
                     <input id="promo-input" type="text" value={promoCode}
                       onChange={e => setPromoCode(e.target.value.toUpperCase())}
                       placeholder="e.g. CAMPUS10"
-                      className="input-premium flex-1 py-2 text-sm" disabled={promoApplied} />
-                    <button id="apply-promo"
-                      onClick={() => promoCode === "CAMPUS10" && setPromoApplied(true)}
-                      disabled={promoApplied || !promoCode}
-                      className="px-3 bg-blue-500/10 border border-blue-500/30 text-blue-400 rounded-xl text-xs font-semibold hover:bg-blue-500/20 transition-all disabled:opacity-50">
-                      {promoApplied ? "✓ Applied" : "Apply"}
-                    </button>
+                      className="input-premium flex-1 py-2 text-sm" disabled={!!appliedPromo || promoLoading} />
+                    {appliedPromo ? (
+                      <button id="apply-promo" onClick={handleRemovePromo}
+                        className="px-3 bg-white/5 border border-white/10 text-muted-foreground rounded-xl text-xs font-semibold hover:bg-white/10 transition-all flex items-center gap-1">
+                        <X className="w-3.5 h-3.5" /> Remove
+                      </button>
+                    ) : (
+                      <button id="apply-promo"
+                        onClick={handleApplyPromo}
+                        disabled={promoLoading || !promoCode}
+                        className="px-3 bg-blue-500/10 border border-blue-500/30 text-blue-400 rounded-xl text-xs font-semibold hover:bg-blue-500/20 transition-all disabled:opacity-50 flex items-center justify-center min-w-[64px]">
+                        {promoLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Apply"}
+                      </button>
+                    )}
                   </div>
-                  {promoApplied && (
-                    <p className="text-xs text-green-400 mt-2">🎉 CAMPUS10 — 10% discount applied!</p>
+                  {appliedPromo && (
+                    <p className="text-xs text-green-400 mt-2">
+                      🎉 {appliedPromo.code} — {appliedPromo.discount_type === "percentage"
+                        ? `${appliedPromo.discount_value}% discount applied!`
+                        : `GHS ${appliedPromo.discount_value} discount applied!`}
+                    </p>
+                  )}
+                  {promoError && !appliedPromo && (
+                    <p className="text-xs text-red-400 mt-2">{promoError}</p>
                   )}
                 </motion.div>
 
@@ -168,9 +225,9 @@ export default function CartPage() {
                       <span className="text-muted-foreground">Delivery fee</span>
                       <span>GHS {deliveryFee}</span>
                     </div>
-                    {promoApplied && (
+                    {appliedPromo && (
                       <div className="flex justify-between text-green-400">
-                        <span>Discount (CAMPUS10)</span>
+                        <span>Discount ({appliedPromo.code})</span>
                         <span>- GHS {discount}</span>
                       </div>
                     )}

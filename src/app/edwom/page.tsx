@@ -10,7 +10,7 @@ import {
   ChevronRight, Package, Smartphone, Shirt, BookOpen,
   Utensils, Sparkles, Home, Cpu, Loader2, AlertCircle,
 } from "lucide-react";
-import { useProducts, useCart } from "@/hooks";
+import { useProducts, useCart, useWishlist } from "@/hooks";
 import { useAuth } from "@/contexts/auth-context";
 import { formatCurrency } from "@/lib/utils";
 
@@ -38,8 +38,8 @@ export default function EdwomPage() {
   const [search, setSearch]                 = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [sort, setSort]                     = useState("created_at");
-  const [wishlist, setWishlist]             = useState<string[]>([]);
   const { count: cartCount } = useCart();
+  const { isWishlisted, toggleWishlist } = useWishlist();
   const { profile } = useAuth();
 
   const { products, count, loading, error } = useProducts({
@@ -54,9 +54,6 @@ export default function EdwomPage() {
     clearTimeout(searchTimer.current);
     searchTimer.current = setTimeout(() => setDebouncedSearch(val), 400);
   }, []);
-
-  const toggleWishlist = (id: string) =>
-    setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
 
   return (
     <div className="min-h-screen">
@@ -183,7 +180,7 @@ export default function EdwomPage() {
                           )}
                           <button onClick={e => { e.preventDefault(); toggleWishlist(product.id); }}
                             className="absolute bottom-2 right-2 w-8 h-8 rounded-full glass border border-white/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all">
-                            <Heart className={`w-4 h-4 ${wishlist.includes(product.id) ? "fill-red-400 text-red-400" : "text-muted-foreground"}`} />
+                            <Heart className={`w-4 h-4 ${isWishlisted(product.id) ? "fill-red-400 text-red-400" : "text-muted-foreground"}`} />
                           </button>
                         </div>
                         {/* Info */}
