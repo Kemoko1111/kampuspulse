@@ -522,7 +522,7 @@ export default function RiderDashboard() {
                       <Phone className="w-4 h-4" /> Call
                     </button>
                   )}
-                  <Link href="/messages"
+                  <Link href={activeRide.passenger_id ? `/messages?user=${activeRide.passenger_id}` : "/messages"}
                     className="flex-1 py-3 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center gap-2 font-medium hover:bg-white/10">
                     <MessageSquare className="w-4 h-4" /> Chat
                   </Link>

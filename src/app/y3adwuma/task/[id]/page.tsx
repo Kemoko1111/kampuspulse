@@ -374,7 +374,7 @@ export default function TaskDetailPage() {
                   <span className="font-medium">{task.poster?.created_at ? new Date(task.poster.created_at).toLocaleDateString(undefined, { month: "short", year: "numeric" }) : "—"}</span>
                 </div>
               </div>
-              <Link href="/messages" className="w-full flex items-center justify-center gap-2 glass border border-white/10 rounded-xl py-2.5 text-sm font-medium hover:bg-white/10 transition-all">
+              <Link href={task.poster_id ? `/messages?user=${task.poster_id}` : "/messages"} className="w-full flex items-center justify-center gap-2 glass border border-white/10 rounded-xl py-2.5 text-sm font-medium hover:bg-white/10 transition-all">
                 <MessageSquare className="w-4 h-4" /> Message
               </Link>
             </motion.div>

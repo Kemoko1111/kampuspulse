@@ -180,7 +180,7 @@ export default function ProductPage() {
                       {seller.rating || "—"} rating
                     </div>
                   </div>
-                  <Link href="/messages" className="flex items-center gap-1 text-xs text-blue-400 border border-blue-500/30 rounded-lg px-3 py-1.5 hover:bg-blue-500/10 transition-all">
+                  <Link href={`/messages?user=${seller.id}`} className="flex items-center gap-1 text-xs text-blue-400 border border-blue-500/30 rounded-lg px-3 py-1.5 hover:bg-blue-500/10 transition-all">
                     <MessageSquare className="w-3.5 h-3.5" /> Chat
                   </Link>
                 </div>

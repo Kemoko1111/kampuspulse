@@ -319,7 +319,7 @@ export default function TrackPage() {
                           <Phone className="w-4 h-4" /> Call Rider
                         </a>
                       )}
-                      <Link href="/messages"
+                      <Link href={ride?.rider_id ? `/messages?user=${ride.rider_id}` : "/messages"}
                         className="flex items-center justify-center gap-2 glass border border-white/10 rounded-xl py-2.5 text-sm font-medium hover:bg-white/10 transition-all">
                         <MessageSquare className="w-4 h-4" /> Message
                       </Link>

@@ -11,7 +11,7 @@ import { cn, formatRelativeTime, getInitials } from "@/lib/utils";
 import { useRealtimeMessages } from "@/hooks";
 import { useAuth } from "@/contexts/auth-context";
 import { createClient } from "@/lib/supabase/client";
-import { uploadFile } from "@/lib/api-client";
+import { uploadFile, startConversation } from "@/lib/api-client";
 import { toast } from "react-hot-toast";
 import type { ChatRoom, Message } from "@/types";
 
@@ -76,6 +76,25 @@ export default function MessagesPage() {
   useEffect(() => {
     fetchRooms();
   }, [fetchRooms]);
+
+  // Deep-link entry point: /messages?user=<recipientProfileId> (used by every
+  // "Message"/"Chat" button across the app). Create-or-open that conversation,
+  // select it, and strip the param so a refresh doesn't re-trigger it. Read
+  // from window.location to avoid needing a useSearchParams Suspense boundary.
+  useEffect(() => {
+    if (!profile?.id) return;
+    const recipientId = new URLSearchParams(window.location.search).get("user");
+    if (!recipientId || recipientId === profile.id) return;
+    let cancelled = false;
+    (async () => {
+      const roomId = await startConversation(recipientId);
+      if (cancelled || !roomId) return;
+      await fetchRooms();
+      if (!cancelled) setActiveConvo(roomId);
+      window.history.replaceState(null, "", "/messages");
+    })();
+    return () => { cancelled = true; };
+  }, [profile?.id, fetchRooms]);
 
   useEffect(() => {
     if (!profile || rooms.length === 0) return;
