@@ -1,19 +1,28 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import {
   ArrowLeft, Bike, Phone, Mail, Loader2,
-  ShieldAlert, Ban, Check, MapPin, Truck, Award
+  ShieldAlert, Ban, Check, MapPin, Truck, Award, Package
 } from "lucide-react";
-import { formatRelativeTime } from "@/lib/utils";
+import { formatCurrency, formatRelativeTime } from "@/lib/utils";
 import { apiFetch } from "@/lib/api-client";
 import { PageHeader } from "@/components/admin/page-header";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { ConfirmModal } from "@/components/admin/confirm-modal";
 import { StatCard } from "@/components/admin/stat-card";
+import { DataTable } from "@/components/admin/data-table";
+
+interface DeliveryOrder {
+  id: string;
+  total_amount: number;
+  status: string;
+  created_at: string;
+  buyer: { full_name: string } | null;
+}
 
 interface RiderDetail {
   id: string;
@@ -34,11 +43,16 @@ interface RiderDetail {
 
 export default function RiderDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const riderId = params.id as string;
 
   const [rider, setRider] = useState<RiderDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [deliveries, setDeliveries] = useState<DeliveryOrder[]>([]);
+  const [deliveriesLoading, setDeliveriesLoading] = useState(true);
+  const [deliveriesPage, setDeliveriesPage] = useState(1);
+  const [deliveriesTotalPages, setDeliveriesTotalPages] = useState(1);
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
     action: "suspend" | "ban" | "activate";
@@ -61,6 +75,23 @@ export default function RiderDetailPage() {
   }, [riderId]);
 
   useEffect(() => { fetchRider(); }, [fetchRider]);
+
+  const fetchDeliveries = useCallback(async () => {
+    setDeliveriesLoading(true);
+    try {
+      const params = new URLSearchParams({ riderId, page: String(deliveriesPage), limit: "10" });
+      const res = await fetch(`/api/admin/orders?${params}`);
+      if (res.ok) {
+        const data = await res.json();
+        setDeliveries(data.orders || []);
+        setDeliveriesTotalPages(data.totalPages || 1);
+      }
+    } finally {
+      setDeliveriesLoading(false);
+    }
+  }, [riderId, deliveriesPage]);
+
+  useEffect(() => { fetchDeliveries(); }, [fetchDeliveries]);
 
   const handleStatusUpdate = async () => {
     if (!confirmModal) return;
@@ -224,16 +255,58 @@ export default function RiderDetailPage() {
             <StatCard title="Completed Orders" value={rider.stats?.completedOrders || 0} icon={Award} color="green" index={0} />
           </div>
 
-          <div className="glass-card overflow-hidden">
-            <div className="p-5 border-b border-white/5 flex items-center justify-between">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
               <h3 className="font-display font-bold text-lg">Delivery History</h3>
               <Link href={`/admin/orders?search=${rider.full_name}`} className="text-sm text-blue-400 hover:text-blue-300">
                 View All
               </Link>
             </div>
-            <div className="p-8 text-center text-muted-foreground text-sm">
-              Use the Orders page to view the full delivery history for this rider.
-            </div>
+            <DataTable
+              columns={[
+                {
+                  key: "id",
+                  label: "Order",
+                  render: (val: unknown) => (
+                    <span className="font-mono text-xs text-muted-foreground">#{String(val).slice(0, 8)}</span>
+                  ),
+                },
+                {
+                  key: "buyer",
+                  label: "Customer",
+                  render: (_: unknown, row: DeliveryOrder) => row.buyer?.full_name || "Unknown",
+                },
+                {
+                  key: "total_amount",
+                  label: "Amount",
+                  render: (val: unknown) => (
+                    <span className="font-display font-bold text-blue-400">{formatCurrency(Number(val))}</span>
+                  ),
+                },
+                {
+                  key: "status",
+                  label: "Status",
+                  render: (val: unknown) => <StatusBadge status={String(val)} variant="order" />,
+                },
+                {
+                  key: "created_at",
+                  label: "Date",
+                  render: (val: unknown) => (
+                    <span className="text-xs text-muted-foreground">{formatRelativeTime(String(val))}</span>
+                  ),
+                },
+              ]}
+              data={deliveries}
+              loading={deliveriesLoading}
+              emptyMessage="No deliveries yet"
+              emptyIcon={Package}
+              onRowClick={(row) => router.push(`/admin/orders/${row.id}`)}
+              pagination={{
+                page: deliveriesPage,
+                totalPages: deliveriesTotalPages,
+                onPageChange: setDeliveriesPage,
+              }}
+            />
           </div>
         </motion.div>
       </div>

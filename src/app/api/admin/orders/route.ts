@@ -13,6 +13,8 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "20", 10);
     const dateFrom = searchParams.get("dateFrom");
     const dateTo = searchParams.get("dateTo");
+    const riderId = searchParams.get("riderId");
+    const buyerId = searchParams.get("buyerId");
     const offset = (page - 1) * limit;
 
     let query = supabase
@@ -54,6 +56,16 @@ export async function GET(request: NextRequest) {
     // Filter by status
     if (status && status !== "all") {
       query = query.eq("status", status);
+    }
+
+    // Filter by a specific rider (used by the rider detail page's delivery history)
+    if (riderId) {
+      query = query.eq("rider_id", riderId);
+    }
+
+    // Filter by a specific buyer (used by the student detail page's order history)
+    if (buyerId) {
+      query = query.eq("buyer_id", buyerId);
     }
 
     // Filter by date range
