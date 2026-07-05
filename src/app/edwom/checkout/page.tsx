@@ -14,6 +14,7 @@ import { useCart } from "@/hooks/useCart";
 import { apiFetch } from "@/lib/api-client";
 
 const paymentMethods = [
+  { id: "wallet", label: "KampusPulse Wallet", apiId: "wallet", emoji: "👛", color: "text-emerald-400", border: "border-emerald-500/30", bg: "bg-emerald-500/10", placeholder: "" },
   { id: "mtn", label: "MTN Mobile Money", apiId: "mtn_momo", emoji: "📱", color: "text-yellow-400", border: "border-yellow-500/30", bg: "bg-yellow-500/10", placeholder: "024X XXX XXX" },
   { id: "telecel", label: "Telecel Cash", apiId: "telecel", emoji: "💳", color: "text-red-400", border: "border-red-500/30", bg: "bg-red-500/10", placeholder: "020X XXX XXX" },
   { id: "airteltigo", label: "AirtelTigo Money", apiId: "airteltigo", emoji: "💰", color: "text-blue-400", border: "border-blue-500/30", bg: "bg-blue-500/10", placeholder: "027X XXX XXX" },
@@ -206,7 +207,7 @@ export default function CheckoutPage() {
                       </button>
                     ))}
                   </div>
-                  {payMethod && (
+                  {payMethod && payMethod !== "wallet" && (
                     <div>
                       <label className="text-sm font-medium block mb-2">
                         {paymentMethods.find(p => p.id === payMethod)?.label} Number
@@ -218,6 +219,11 @@ export default function CheckoutPage() {
                           className="input-premium pl-9" />
                       </div>
                     </div>
+                  )}
+                  {payMethod === "wallet" && (
+                    <p className="text-xs text-muted-foreground">
+                      The order total will be deducted from your wallet balance. Top up on your profile if you&apos;re short.
+                    </p>
                   )}
                   <div className="flex gap-3">
                     <button onClick={() => setStep(0)} className="flex-1 glass border border-white/10 rounded-xl py-3 text-sm font-medium hover:bg-white/5 transition-all">
