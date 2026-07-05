@@ -21,9 +21,22 @@ export async function requireProfile() {
     .eq("user_id", user.id)
     .single();
 
-  const profile = rawProfile as { id: string; role: string; user_id: string } | null;
+  const profile = rawProfile as { id: string; role: string; user_id: string; status?: string } | null;
   if (error || !profile) {
     throw new AppError("Profile not found", 404, "PROFILE_NOT_FOUND");
+  }
+
+  // Enforce admin moderation: a suspended/banned account was previously still
+  // able to do everything (the status was written but never checked). Block
+  // all authenticated actions for them.
+  if (profile.status === "suspended" || profile.status === "banned") {
+    throw new AppError(
+      profile.status === "banned"
+        ? "Your account has been banned. Contact support."
+        : "Your account is suspended. Contact support.",
+      403,
+      "ACCOUNT_BLOCKED"
+    );
   }
 
   return { supabase, user, profile };
