@@ -97,10 +97,9 @@ export async function PATCH(
     const { id } = await params;
 
     const body = await request.json();
-    const { action, status, riderId, notes } = body as {
+    const { action, status, notes } = body as {
       action: "accept" | "reject" | "update_status" | "assign_rider";
       status?: string;
-      riderId?: string;
       notes?: string;
     };
 
@@ -129,13 +128,13 @@ export async function PATCH(
             "MISSING_STATUS"
           );
         }
+        // Must match the orders.status DB CHECK exactly — preparing/ready/
+        // picked_up/in_transit are NOT valid and caused a 500 on every use.
         const validStatuses = [
           "pending",
           "confirmed",
-          "preparing",
-          "ready",
-          "picked_up",
-          "in_transit",
+          "processing",
+          "shipped",
           "delivered",
           "cancelled",
           "refunded",
@@ -152,15 +151,10 @@ export async function PATCH(
         break;
 
       case "assign_rider":
-        if (!riderId) {
-          throw new AppError(
-            "riderId is required for assign_rider action",
-            400,
-            "MISSING_RIDER_ID"
-          );
-        }
-        updatePayload.rider_id = riderId;
-        updatePayload.status = "picked_up";
+        // orders has no rider_id column (rider assignment lives on the linked
+        // delivery, dispatched automatically when the order is paid). Manually
+        // marking an order out-for-delivery just advances it to "shipped".
+        updatePayload.status = "shipped";
         break;
 
       default:

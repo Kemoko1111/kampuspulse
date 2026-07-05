@@ -49,12 +49,15 @@ interface OrderDetail {
   }[];
 }
 
+// Statuses MUST match the orders.status DB CHECK (pending, confirmed,
+// processing, shipped, delivered, cancelled, refunded) — the old flow used
+// preparing/ready/picked_up, which the DB rejected, so every advance past
+// "confirmed" 500'd. This also matches the buyer's order-tracking timeline.
 const statusFlow: Record<string, { next: string; label: string; icon: LucideIcon }> = {
   pending: { next: "confirmed", label: "Accept Order", icon: Check },
-  confirmed: { next: "preparing", label: "Mark as Preparing", icon: ChefHat },
-  preparing: { next: "ready", label: "Mark as Ready", icon: Package },
-  ready: { next: "picked_up", label: "Assign to Rider", icon: Bike },
-  picked_up: { next: "delivered", label: "Mark as Delivered", icon: CheckCircle },
+  confirmed: { next: "processing", label: "Mark as Preparing", icon: ChefHat },
+  processing: { next: "shipped", label: "Mark as Out for Delivery", icon: Bike },
+  shipped: { next: "delivered", label: "Mark as Delivered", icon: CheckCircle },
 };
 
 export default function OrderDetailPage() {

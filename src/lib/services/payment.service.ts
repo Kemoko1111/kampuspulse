@@ -56,6 +56,10 @@ export class PaymentService {
         } as never)
         .eq("id", params.orderId);
 
+      // Payment confirmed → now decrement stock + clear the cart.
+      const { fulfillPaidOrder } = await import("@/lib/services/order-fulfillment");
+      await fulfillPaidOrder(this.supabase, params.orderId);
+
       // Order is paid → dispatch a rider to deliver it (seller → buyer).
       // Best-effort: a matching/dispatch hiccup must not fail the payment.
       try {

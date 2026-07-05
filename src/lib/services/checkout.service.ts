@@ -44,18 +44,14 @@ export class CheckoutService {
     const allSameSeller = validItems.every((item) => item.product.seller_id === sellerId);
     if (!allSameSeller) throw new AppError("All items must be from the same seller", 400);
 
+    // NOTE: stock is NOT decremented here and the cart is NOT cleared here.
+    // Both happen only once payment is CONFIRMED (see fulfillPaidOrder), so an
+    // abandoned or failed payment can't silently lose inventory or empty the
+    // cart. validItems already checked stock_quantity >= quantity above.
     let totalAmount = 0;
     const orderItems: { product_id: string; quantity: number; unit_price: number; total_price: number }[] = [];
 
     for (const item of validItems) {
-      const { data: stockOk, error: stockError } = await this.supabase.rpc("decrement_product_stock", {
-        p_product_id: item.product_id,
-        p_quantity: item.quantity,
-      } as never);
-      if (stockError || !stockOk) {
-        throw new AppError(`Insufficient stock for ${item.product.title}`, 400);
-      }
-
       const itemTotal = item.product.price * item.quantity;
       totalAmount += itemTotal;
       orderItems.push({
@@ -83,8 +79,6 @@ export class CheckoutService {
       },
       orderItems
     )) as { id: string; seller_id: string; total_amount: number };
-
-    await this.cartRepo.clear(profileId);
 
     const payment = await this.paymentService.initializePayment({
       amount: totalAmount,

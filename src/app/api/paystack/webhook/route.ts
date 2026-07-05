@@ -61,6 +61,12 @@ export async function POST(request: NextRequest) {
         .update({ payment_status: "paid", status: "confirmed", payment_reference: reference })
         .eq("id", orderId);
 
+      // Payment confirmed → decrement stock + clear cart (runs once, inside
+      // the transaction-guard block above, so a repeated webhook won't
+      // double-decrement).
+      const { fulfillPaidOrder } = await import("@/lib/services/order-fulfillment");
+      await fulfillPaidOrder(supabase as never, orderId);
+
       // Order paid → dispatch a rider to deliver it (idempotent, so a repeated
       // webhook won't create a second delivery). Best-effort.
       try {
@@ -117,8 +123,18 @@ export async function POST(request: NextRequest) {
   }
 
   if (event.event === "charge.failed") {
-    const { reference } = event.data;
+    const { reference, metadata } = event.data;
     await supabase.from("transactions").update({ status: "failed" }).eq("reference", reference);
+    // Cancel the pending order so it isn't a ghost. No stock to restore —
+    // stock is only decremented on payment success (see fulfillPaidOrder).
+    const failedOrderId = metadata?.order_id;
+    if (failedOrderId) {
+      await supabase
+        .from("orders")
+        .update({ status: "cancelled", payment_status: "failed" })
+        .eq("id", failedOrderId)
+        .eq("payment_status", "pending");
+    }
   }
 
   if (event.event === "refund.processed") {
