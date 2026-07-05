@@ -32,18 +32,31 @@ export class NotificationService {
       .eq("profile_id", params.userId);
 
     if (tokens?.length) {
-      const stringData: Record<string, string> = {};
-      if (params.data) {
-        for (const [k, v] of Object.entries(params.data)) {
-          stringData[k] = String(v);
+      // Respect the recipient's push preference (Settings → Push Notifications).
+      // The in-app row above is always created; only the device push is gated.
+      // Defaults to on when unset.
+      const { data: prefRow } = await this.supabase
+        .from("profiles")
+        .select("notification_preferences")
+        .eq("id", params.userId)
+        .maybeSingle();
+      const prefs = (prefRow as { notification_preferences?: { push?: boolean } } | null)?.notification_preferences;
+      const pushEnabled = prefs?.push !== false;
+
+      if (pushEnabled) {
+        const stringData: Record<string, string> = {};
+        if (params.data) {
+          for (const [k, v] of Object.entries(params.data)) {
+            stringData[k] = String(v);
+          }
         }
+        await sendPushNotification(
+          (tokens as { token: string }[]).map((t) => t.token),
+          params.title,
+          params.body,
+          stringData
+        );
       }
-      await sendPushNotification(
-        (tokens as { token: string }[]).map((t) => t.token),
-        params.title,
-        params.body,
-        stringData
-      );
     }
 
     return notification;

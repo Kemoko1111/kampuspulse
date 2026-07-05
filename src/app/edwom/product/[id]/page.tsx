@@ -106,6 +106,7 @@ export default function ProductPage() {
   const categoryName = product.category?.name || "Uncategorized";
   const conditionLabel = conditionLabels[product.condition] || product.condition;
   const sellerInitials = seller?.full_name?.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase() || "??";
+  const outOfStock = (product.stock_quantity ?? 0) <= 0 || product.status === "sold";
 
   return (
     <div className="min-h-screen">
@@ -218,15 +219,19 @@ export default function ProductPage() {
               ))}
             </div>
 
+            {outOfStock && (
+              <p className="text-sm font-medium text-red-400">Out of stock</p>
+            )}
+
             <div className="flex gap-3">
               <button
                 id="add-to-cart"
                 onClick={handleAddToCart}
-                disabled={adding || addedToCart}
-                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm transition-all
+                disabled={adding || addedToCart || outOfStock}
+                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm transition-all disabled:opacity-50
                   ${addedToCart ? "bg-green-500/10 text-green-400 border border-green-500/30" : "btn-primary"}`}>
                 <ShoppingCart className="w-4 h-4" />
-                {adding ? "Adding..." : addedToCart ? "Added to Cart ✓" : "Add to Cart"}
+                {outOfStock ? "Out of Stock" : adding ? "Adding..." : addedToCart ? "Added to Cart ✓" : "Add to Cart"}
               </button>
               <button onClick={() => toggleWishlist(product.id)}
                 className="w-12 h-12 glass border border-white/10 rounded-xl flex items-center justify-center hover:bg-white/10 transition-all">
@@ -237,7 +242,7 @@ export default function ProductPage() {
               </button>
             </div>
 
-            <button onClick={handleBuyNow} disabled={adding}
+            <button onClick={handleBuyNow} disabled={adding || outOfStock}
               className="w-full block text-center bg-gradient-to-r from-emerald-600 to-emerald-500 text-white font-semibold py-3 rounded-xl hover:shadow-glow transition-all disabled:opacity-50">
               Buy Now – GHS {product.price.toLocaleString()}
             </button>

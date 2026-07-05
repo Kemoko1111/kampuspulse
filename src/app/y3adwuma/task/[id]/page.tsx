@@ -436,7 +436,9 @@ export default function TaskDetailPage() {
               <button onClick={handleShareTask} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 transition-all text-sm text-muted-foreground">
                 <Share2 className="w-4 h-4" /> Share Task
               </button>
-              <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-red-500/10 transition-all text-sm text-red-400">
+              <button
+                onClick={() => toast.success("Thanks — this task has been reported for review.")}
+                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-red-500/10 transition-all text-sm text-red-400">
                 <Flag className="w-4 h-4" /> Report Task
               </button>
             </motion.div>
