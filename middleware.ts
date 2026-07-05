@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 const PRIVATE_ROUTES = [
-  "/home", "/edwom/cart", "/edwom/checkout", "/edwom/orders",
+  "/home", "/edwom/cart", "/edwom/checkout", "/edwom/orders", "/edwom/sell",
   "/y3adwuma/post-task", "/messages", "/notifications", "/profile", "/settings", "/admin", "/rider",
 ];
 

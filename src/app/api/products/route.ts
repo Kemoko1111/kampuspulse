@@ -33,11 +33,9 @@ export async function POST(request: NextRequest) {
   try {
     await validateCsrf(request);
     const { profile } = await requireProfile();
-    
-    if (profile.role !== "admin") {
-      return NextResponse.json({ error: "Only admins can sell products" }, { status: 403 });
-    }
 
+    // Peer marketplace: any signed-in student can list an item. seller_id is
+    // forced to their own profile id below, so they can't list as someone else.
     const body = sanitizeObject(
       createProductSchema.parse(await request.json()),
       ["title", "description", "location"]
