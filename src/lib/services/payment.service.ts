@@ -87,6 +87,15 @@ export class PaymentService {
         .eq("id", params.rideId);
     }
 
+    // No order/task/ride → this is a wallet top-up. Credit the wallet here (in
+    // dev mode there's no Paystack webhook to do it, unlike the real path).
+    if (!params.orderId && !params.orderIds?.length && !params.taskId && !params.rideId) {
+      await this.supabase.rpc("increment_wallet_balance", {
+        p_user_id: params.profileId,
+        p_amount: params.amount,
+      } as never);
+    }
+
     return {
       reference,
       dev_mode: true,
@@ -96,7 +105,7 @@ export class PaymentService {
         ? `/y3adwuma/task/${params.taskId}`
         : params.rideId
         ? `/ezzyride/track/${params.rideId}`
-        : "/home",
+        : "/profile",
     };
   }
 

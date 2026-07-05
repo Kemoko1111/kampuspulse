@@ -14,12 +14,14 @@ export async function GET() {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Get wallet balance
+  // wallets.user_id stores the PROFILE id, not the auth user id — querying by
+  // user.id here always returned null, so the balance always showed GHS 0.
+  const profileId = (data as { id: string }).id;
   const { data: wallet } = await supabase
     .from("wallets")
     .select("balance, currency")
-    .eq("user_id", user.id)
-    .single();
+    .eq("user_id", profileId)
+    .maybeSingle();
 
   return NextResponse.json({ data: { ...(data as object), wallet } });
 }

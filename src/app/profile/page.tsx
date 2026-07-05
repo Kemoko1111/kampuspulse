@@ -7,14 +7,50 @@ import {
   Star, Package, Briefcase, Edit, Settings, Bell,
   Shield, MapPin, Calendar, Loader2, User, LogOut,
 } from "lucide-react";
+import { useState } from "react";
+import { toast } from "react-hot-toast";
 import { useAuth } from "@/contexts/auth-context";
 import { useProfile, useOrders } from "@/hooks";
+import { apiFetch } from "@/lib/api-client";
 import { formatCurrency, formatDate, getInitials } from "@/lib/utils";
 
 export default function ProfilePage() {
   const { user, signOut } = useAuth();
   const { profile, loading } = useProfile();
   const { orders } = useOrders();
+  const [toppingUp, setToppingUp] = useState(false);
+
+  const handleTopUp = async () => {
+    const input = window.prompt("How much would you like to add to your wallet? (GHS)");
+    if (!input) return;
+    const amount = Number(input);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast.error("Enter a valid amount");
+      return;
+    }
+    setToppingUp(true);
+    try {
+      const res = await apiFetch("/api/wallet/topup", {
+        method: "POST",
+        body: JSON.stringify({ amount }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Top up failed");
+      const payment = json.data ?? {};
+      if (payment.authorization_url) {
+        window.location.href = payment.authorization_url; // real Paystack
+      } else if (payment.dev_mode) {
+        toast.success(`GHS ${amount.toFixed(2)} added to your wallet`);
+        window.location.reload();
+      } else {
+        throw new Error("Could not start top up");
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Top up failed");
+    } finally {
+      setToppingUp(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -129,8 +165,14 @@ export default function ProfilePage() {
                 <p className="text-xs text-muted-foreground mt-1">Available balance</p>
               </div>
               <div className="flex flex-col gap-2">
-                <button className="btn-primary text-sm px-4 py-2">Top Up</button>
-                <button className="glass border border-white/10 rounded-xl px-4 py-2 text-sm font-medium hover:bg-white/10 transition-all">Withdraw</button>
+                <button onClick={handleTopUp} disabled={toppingUp} className="btn-primary text-sm px-4 py-2 disabled:opacity-50">
+                  {toppingUp ? "Starting…" : "Top Up"}
+                </button>
+                <button
+                  onClick={() => toast("Withdrawals to mobile money are coming soon")}
+                  className="glass border border-white/10 rounded-xl px-4 py-2 text-sm font-medium hover:bg-white/10 transition-all">
+                  Withdraw
+                </button>
               </div>
             </div>
           </div>
