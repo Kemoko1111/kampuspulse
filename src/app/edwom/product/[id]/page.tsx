@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft, Star, Heart, ShoppingCart, Share2,
   MessageSquare, Shield, Truck, RotateCcw,
@@ -33,6 +33,7 @@ export default function ProductPage() {
   const [error, setError] = useState<string | null>(null);
   const { addItem } = useCart();
   const { isWishlisted, toggleWishlist } = useWishlist();
+  const router = useRouter();
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -55,6 +56,18 @@ export default function ProductPage() {
     const ok = await addItem(product.id, 1);
     if (ok) setAddedToCart(true);
     setAdding(false);
+  };
+
+  // "Buy Now" must actually add THIS product to the cart before going to
+  // checkout — previously it was a bare link that just showed the existing
+  // (often empty) cart.
+  const handleBuyNow = async () => {
+    if (!product) return;
+    setAdding(true);
+    const ok = await addItem(product.id, 1);
+    setAdding(false);
+    if (ok) router.push("/edwom/checkout");
+    else toast.error("Could not start checkout");
   };
 
   const handleShare = async () => {
@@ -224,9 +237,10 @@ export default function ProductPage() {
               </button>
             </div>
 
-            <Link href="/edwom/checkout" className="w-full block text-center bg-gradient-to-r from-emerald-600 to-emerald-500 text-white font-semibold py-3 rounded-xl hover:shadow-glow transition-all">
+            <button onClick={handleBuyNow} disabled={adding}
+              className="w-full block text-center bg-gradient-to-r from-emerald-600 to-emerald-500 text-white font-semibold py-3 rounded-xl hover:shadow-glow transition-all disabled:opacity-50">
               Buy Now – GHS {product.price.toLocaleString()}
-            </Link>
+            </button>
           </motion.div>
         </div>
 

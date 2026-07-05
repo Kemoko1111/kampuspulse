@@ -56,11 +56,14 @@ export default function ReportsPage() {
       const res = await fetch(`/api/admin/metrics`);
       if (res.ok) {
         const data = await res.json();
+        // Stats are nested under data.metrics (this page previously read them
+        // at the top level, so everything showed 0); revenueByDay is top-level.
+        const m = data.metrics || {};
         setMetrics({
-          totalRevenue: data.totalRevenue || 0,
-          totalOrders: data.totalOrders || 0,
-          totalStudents: data.totalStudents || 0,
-          totalProducts: data.totalProducts || 0,
+          totalRevenue: m.totalRevenue || 0,
+          totalOrders: m.totalOrders || 0,
+          totalStudents: m.totalStudents || 0,
+          totalProducts: m.totalProducts || 0,
           revenueByDay: data.revenueByDay || {},
         });
       }
