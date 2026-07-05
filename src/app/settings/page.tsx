@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useState, type ChangeEvent } from "react";
 import { Bell, Shield, Moon, Globe, Trash2, LogOut, ChevronRight, User, CreditCard, Smartphone, Loader2, Check, AlertCircle } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { toast } from "react-hot-toast";
 import { useAuth } from "@/contexts/auth-context";
 import { useProfile } from "@/hooks";
 
@@ -17,8 +18,7 @@ const settingSections = [
   {
     title: "Account",
     items: [
-      { label: "Verification & ID", icon: Shield, href: "#" },
-      { label: "Change Password", icon: Shield, href: "#" },
+      { label: "Change Password", icon: Shield, href: "/settings/password" },
     ],
   },
   {
@@ -279,7 +279,13 @@ export default function SettingsPage() {
                 </div>
                 <span className="text-sm font-medium text-red-400">Sign Out</span>
               </button>
-              <button className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-red-500/5 transition-colors text-left">
+              <button
+                onClick={() => {
+                  if (window.confirm("Delete your account? This can't be undone from here — we'll walk you through it.")) {
+                    toast("To permanently delete your account, email support and we'll process it.");
+                  }
+                }}
+                className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-red-500/5 transition-colors text-left">
                 <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center">
                   <Trash2 className="w-4 h-4 text-red-400" />
                 </div>

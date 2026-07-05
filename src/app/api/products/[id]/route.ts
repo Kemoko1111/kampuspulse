@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { handleApiError, AppError } from "@/lib/errors/app-error";
 import { requireProfile } from "@/lib/middleware/auth";
 import { validateCsrf } from "@/lib/middleware/csrf";
@@ -18,8 +19,14 @@ export async function GET(
 
     if (error || !data) throw new AppError("Product not found", 404);
 
+    // Increment the view count with the service-role client and await it — the
+    // previous fire-and-forget update used the request client, which products
+    // UPDATE RLS blocks on anyone else's product, so views never moved.
     const product = data as { views?: number };
-    supabase.from("products").update({ views: (product.views || 0) + 1 } as never).eq("id", id);
+    await createAdminClient()
+      .from("products")
+      .update({ views: (product.views || 0) + 1 } as never)
+      .eq("id", id);
 
     return NextResponse.json({ data });
   } catch (error) {

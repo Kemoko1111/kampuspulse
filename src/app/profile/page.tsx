@@ -7,11 +7,12 @@ import {
   Star, Package, Briefcase, Edit, Settings, Bell,
   Shield, MapPin, Calendar, Loader2, User, LogOut,
 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "react-hot-toast";
+import { Camera } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useProfile, useOrders } from "@/hooks";
-import { apiFetch } from "@/lib/api-client";
+import { apiFetch, uploadFile } from "@/lib/api-client";
 import { formatCurrency, formatDate, getInitials } from "@/lib/utils";
 
 export default function ProfilePage() {
@@ -19,6 +20,31 @@ export default function ProfilePage() {
   const { profile, loading } = useProfile();
   const { orders } = useOrders();
   const [toppingUp, setToppingUp] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAvatarSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setUploadingAvatar(true);
+    try {
+      const uploadRes = await uploadFile("avatars", file);
+      const uploadJson = await uploadRes.json();
+      if (!uploadRes.ok) throw new Error(uploadJson.error || "Upload failed");
+      const res = await apiFetch("/api/profile", {
+        method: "PATCH",
+        body: JSON.stringify({ avatar_url: uploadJson.data.url }),
+      });
+      if (!res.ok) throw new Error("Failed to save photo");
+      toast.success("Profile photo updated");
+      window.location.reload();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update photo");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
 
   const handleTopUp = async () => {
     const input = window.prompt("How much would you like to add to your wallet? (GHS)");
@@ -101,7 +127,14 @@ export default function ProfilePage() {
                   {initials}
                 </div>
               )}
-              <div className="absolute -bottom-1 -right-1 status-dot-online border-2 border-background" />
+              <input ref={avatarInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleAvatarSelected} className="hidden" />
+              <button
+                onClick={() => avatarInputRef.current?.click()}
+                disabled={uploadingAvatar}
+                title="Change photo"
+                className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-blue-600 border-2 border-background flex items-center justify-center text-white hover:bg-blue-500 transition-colors disabled:opacity-50">
+                {uploadingAvatar ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5" />}
+              </button>
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-2">
