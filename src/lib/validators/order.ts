@@ -5,6 +5,7 @@ export const createOrderSchema = z.object({
   notes: z.string().max(1000).optional(),
   paymentMethod: z.enum(["mtn_momo", "telecel", "airteltigo", "card", "wallet"]).default("mtn_momo"),
   phone: z.string().max(20).optional(),
+  promoCode: z.string().max(40).optional(),
 });
 
 export const orderQuerySchema = z.object({

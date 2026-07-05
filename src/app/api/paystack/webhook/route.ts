@@ -36,6 +36,12 @@ export async function POST(request: NextRequest) {
   if (event.event === "charge.success") {
     const { reference, metadata, amount } = event.data;
     const orderId = metadata?.order_id;
+    // A single checkout can settle multiple orders (one per seller).
+    const orderIds: string[] = metadata?.order_ids?.length
+      ? metadata.order_ids
+      : orderId
+      ? [orderId]
+      : [];
     const taskId = metadata?.task_id;
     const rideId = metadata?.ride_id;
     const userId = metadata?.user_id;
@@ -55,23 +61,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ received: true, duplicate: true });
     }
 
-    if (orderId) {
+    for (const oid of orderIds) {
       await supabase
         .from("orders")
         .update({ payment_status: "paid", status: "confirmed", payment_reference: reference })
-        .eq("id", orderId);
+        .eq("id", oid);
 
       // Payment confirmed → decrement stock + clear cart (runs once, inside
       // the transaction-guard block above, so a repeated webhook won't
       // double-decrement).
       const { fulfillPaidOrder } = await import("@/lib/services/order-fulfillment");
-      await fulfillPaidOrder(supabase as never, orderId);
+      await fulfillPaidOrder(supabase as never, oid);
 
       // Order paid → dispatch a rider to deliver it (idempotent, so a repeated
       // webhook won't create a second delivery). Best-effort.
       try {
         const { DeliveryService } = await import("@/lib/services/delivery.service");
-        await new DeliveryService(supabase as never).dispatchForOrder(orderId);
+        await new DeliveryService(supabase as never).dispatchForOrder(oid);
       } catch (e) {
         console.error("Order delivery dispatch failed:", e);
       }
@@ -79,7 +85,7 @@ export async function POST(request: NextRequest) {
       const { data: order } = await supabase
         .from("orders")
         .select("buyer_id, seller_id, total_amount")
-        .eq("id", orderId)
+        .eq("id", oid)
         .single();
 
       if (order) {
@@ -87,15 +93,15 @@ export async function POST(request: NextRequest) {
           userId: order.buyer_id,
           type: "payment_success",
           title: "Payment Confirmed!",
-          body: `Your payment of GHS ${(amount / 100).toFixed(2)} was successful.`,
-          data: { order_id: orderId, reference },
+          body: `Your payment of GHS ${order.total_amount} was successful.`,
+          data: { order_id: oid, reference },
         });
         await notifService.notify({
           userId: order.seller_id,
           type: "new_order",
           title: "New Order Paid!",
           body: `Order worth GHS ${order.total_amount} has been paid.`,
-          data: { order_id: orderId },
+          data: { order_id: oid },
         });
       }
     }

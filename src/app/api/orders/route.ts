@@ -39,7 +39,8 @@ export async function POST(request: NextRequest) {
       body.deliveryAddress,
       body.notes,
       body.paymentMethod,
-      body.phone
+      body.phone,
+      body.promoCode
     );
 
     const notif = new NotificationService(admin);

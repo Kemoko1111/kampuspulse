@@ -9,6 +9,9 @@ interface InitializePaymentParams {
   email: string;
   profileId: string;
   orderId?: string;
+  // A single cart can produce multiple orders (one per seller). All are
+  // settled together by one payment; orderId (if set) is treated as one of them.
+  orderIds?: string[];
   taskId?: string;
   rideId?: string;
   paymentMethod?: string;
@@ -17,6 +20,25 @@ interface InitializePaymentParams {
 
 export class PaymentService {
   constructor(private supabase: TypedSupabaseClient) {}
+
+  // Mark one order paid, then decrement stock/clear cart and dispatch a rider.
+  // Shared by the dev-payment path here and (mirrored) by the Paystack webhook.
+  private async settleOrder(orderId: string, reference: string) {
+    await this.supabase
+      .from("orders")
+      .update({ payment_status: "paid", status: "confirmed", payment_reference: reference } as never)
+      .eq("id", orderId);
+
+    const { fulfillPaidOrder } = await import("@/lib/services/order-fulfillment");
+    await fulfillPaidOrder(this.supabase, orderId);
+
+    try {
+      const { DeliveryService } = await import("@/lib/services/delivery.service");
+      await new DeliveryService(this.supabase).dispatchForOrder(orderId);
+    } catch (e) {
+      console.error("Order delivery dispatch failed:", e);
+    }
+  }
 
   private ensurePaystackConfigured() {
     if (!isPaystackConfigured()) {
@@ -43,31 +65,12 @@ export class PaymentService {
         : params.taskId
         ? `Task escrow ${params.taskId} (dev)`
         : `Ride payment ${params.rideId} (dev)`,
-      metadata: { order_id: params.orderId, task_id: params.taskId, ride_id: params.rideId, dev_mode: true },
+      metadata: { order_id: params.orderId, order_ids: params.orderIds, task_id: params.taskId, ride_id: params.rideId, dev_mode: true },
     } as never);
 
-    if (params.orderId) {
-      await this.supabase
-        .from("orders")
-        .update({
-          payment_status: "paid",
-          status: "confirmed",
-          payment_reference: reference,
-        } as never)
-        .eq("id", params.orderId);
-
-      // Payment confirmed → now decrement stock + clear the cart.
-      const { fulfillPaidOrder } = await import("@/lib/services/order-fulfillment");
-      await fulfillPaidOrder(this.supabase, params.orderId);
-
-      // Order is paid → dispatch a rider to deliver it (seller → buyer).
-      // Best-effort: a matching/dispatch hiccup must not fail the payment.
-      try {
-        const { DeliveryService } = await import("@/lib/services/delivery.service");
-        await new DeliveryService(this.supabase).dispatchForOrder(params.orderId);
-      } catch (e) {
-        console.error("Order delivery dispatch failed:", e);
-      }
+    const orderIds = params.orderIds ?? (params.orderId ? [params.orderId] : []);
+    for (const orderId of orderIds) {
+      await this.settleOrder(orderId, reference);
     }
 
     if (params.taskId) {
@@ -129,6 +132,7 @@ export class PaymentService {
         metadata: {
           user_id: params.profileId,
           order_id: params.orderId,
+          order_ids: params.orderIds,
           task_id: params.taskId,
           ride_id: params.rideId,
           custom_fields: [
@@ -158,7 +162,7 @@ export class PaymentService {
         : params.taskId
         ? `Task escrow ${params.taskId}`
         : `Ride payment ${params.rideId}`,
-      metadata: { order_id: params.orderId, task_id: params.taskId, ride_id: params.rideId },
+      metadata: { order_id: params.orderId, order_ids: params.orderIds, task_id: params.taskId, ride_id: params.rideId },
     } as never);
 
     return { ...result.data, reference };

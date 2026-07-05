@@ -47,6 +47,7 @@ export default function CheckoutPage() {
   const [hall, setHall] = useState("");
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [promoCode, setPromoCode] = useState("");
 
   const delivery = 5;
   const orderTotal = total + delivery;
@@ -69,6 +70,7 @@ export default function CheckoutPage() {
           deliveryAddress,
           paymentMethod: selectedMethod?.apiId || "mtn_momo",
           phone: momoNumber || phone,
+          promoCode: promoCode.trim() || undefined,
         }),
       });
 
@@ -292,6 +294,15 @@ export default function CheckoutPage() {
                 ))}
               </div>
               <div className="border-t border-white/10 pt-3 space-y-1.5 text-sm">
+                <div>
+                  <input
+                    value={promoCode}
+                    onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                    placeholder="Promo code (optional)"
+                    className="input-premium w-full text-sm py-2"
+                  />
+                  <p className="text-[11px] text-muted-foreground mt-1">Any discount is applied to the amount you pay.</p>
+                </div>
                 <div className="flex justify-between text-muted-foreground">
                   <span>Subtotal</span><span>GHS {total.toLocaleString()}</span>
                 </div>
