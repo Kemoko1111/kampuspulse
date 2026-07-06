@@ -1,7 +1,8 @@
 import type { TypedSupabaseClient } from "@/lib/supabase/types";
 import { AppError } from "@/lib/errors/app-error";
 import { RideRepository } from "@/lib/repositories/ride.repository";
-import { NotificationRepository } from "@/lib/repositories/notification.repository";
+import { NotificationService } from "@/lib/services/notification.service";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { calculateFare, type FareSettings } from "@/lib/services/fare.service";
 
 const DEFAULT_DELIVERY_FARE: FareSettings = { base_fare: 8, per_km_rate: 3, per_min_rate: 0.75 };
@@ -35,11 +36,14 @@ const CAMPUS_CENTER = { lat: 5.1053, lng: -1.2825 };
 
 export class DeliveryService {
   private rideRepo: RideRepository;
-  private notifRepo: NotificationRepository;
+  // Admin-backed: notifies the OTHER party (sender↔rider), which the
+  // notifications RLS blocks under a user client, and sends device push. See
+  // the same note in RideService.
+  private notifService: NotificationService;
 
   constructor(private supabase: TypedSupabaseClient) {
     this.rideRepo = new RideRepository(supabase);
-    this.notifRepo = new NotificationRepository(supabase);
+    this.notifService = new NotificationService(createAdminClient());
   }
 
   private async getFareSettings(): Promise<FareSettings> {
@@ -94,13 +98,13 @@ export class DeliveryService {
     const list = (riders || []) as { user_id: string }[];
     await Promise.all(
       list.map((r) =>
-        this.notifRepo.create({
-          user_id: r.user_id,
+        this.notifService.notify({
+          userId: r.user_id,
           type: "delivery_request",
           title: "New Delivery Request",
           body: "A new delivery request is available. Open the driver app to accept.",
           data: { delivery_id: deliveryId },
-        })
+        }).catch((e) => console.error("Rider ping failed:", e))
       )
     );
   }
@@ -121,8 +125,8 @@ export class DeliveryService {
 
     const delivery = data as { id: string; sender_id: string; order_id: string | null };
     if (delivery.sender_id) {
-      await this.notifRepo.create({
-        user_id: delivery.sender_id,
+      await this.notifService.notify({
+        userId: delivery.sender_id,
         type: "delivery_update",
         title: "Rider on the way!",
         body: "A rider accepted your delivery and is heading to pickup.",
@@ -242,8 +246,8 @@ export class DeliveryService {
 
     const notifyId = isSender ? delivery.rider_id : delivery.sender_id;
     if (notifyId) {
-      await this.notifRepo.create({
-        user_id: notifyId,
+      await this.notifService.notify({
+        userId: notifyId,
         type: "delivery_update",
         title: "Delivery Update",
         body: `Your delivery status is now: ${status.replace("_", " ")}`,

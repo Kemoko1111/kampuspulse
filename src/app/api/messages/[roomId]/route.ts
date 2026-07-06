@@ -3,6 +3,8 @@ import { handleApiError } from "@/lib/errors/app-error";
 import { requireProfile } from "@/lib/middleware/auth";
 import { validateCsrf } from "@/lib/middleware/csrf";
 import { sanitizeText } from "@/lib/middleware/sanitize";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { NotificationService } from "@/lib/services/notification.service";
 
 export async function GET(
   request: NextRequest,
@@ -100,13 +102,22 @@ export async function POST(
         .single();
 
       const sender = senderProfile as { full_name: string | null } | null;
-      await supabase.from("notifications").insert({
-        user_id: recipientId,
-        type: "message",
-        title: `New message from ${sender?.full_name || "Someone"}`,
-        body: content.slice(0, 80),
-        data: { room_id: roomId, sender_id: profile.id },
-      } as never);
+      // Route through NotificationService so the recipient also gets a device
+      // push (respecting their push preference), not just an in-app row.
+      // Service-role client because it writes to another user's notifications
+      // and reads their fcm_tokens. Best-effort — a push hiccup mustn't fail
+      // the message send.
+      try {
+        await new NotificationService(createAdminClient()).notify({
+          userId: recipientId,
+          type: "message",
+          title: `New message from ${sender?.full_name || "Someone"}`,
+          body: content.slice(0, 80),
+          data: { room_id: roomId, sender_id: profile.id },
+        });
+      } catch (e) {
+        console.error("Message notification failed:", e);
+      }
     }
 
     return NextResponse.json({ data }, { status: 201 });

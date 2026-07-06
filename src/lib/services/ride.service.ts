@@ -2,7 +2,8 @@ import type { TypedSupabaseClient } from "@/lib/supabase/types";
 import type { Ride } from "@/types";
 import { AppError } from "@/lib/errors/app-error";
 import { RideRepository } from "@/lib/repositories/ride.repository";
-import { NotificationRepository } from "@/lib/repositories/notification.repository";
+import { NotificationService } from "@/lib/services/notification.service";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { calculateFare, type FareSettings } from "@/lib/services/fare.service";
 import { PaymentService } from "@/lib/services/payment.service";
 
@@ -19,12 +20,17 @@ const CANCELLABLE_FROM = ["searching", "accepted", "en_route", "arrived", "in_pr
 
 export class RideService {
   private rideRepo: RideRepository;
-  private notifRepo: NotificationRepository;
+  // notify() creates the in-app row AND sends a device push (respecting the
+  // recipient's preference). Always admin-backed: it notifies the OTHER party
+  // (passenger↔rider), and the notifications RLS only lets a user insert their
+  // own rows — under the route's user client those cross-user inserts would
+  // silently fail. Admin also reads the recipient's fcm_tokens for push.
+  private notifService: NotificationService;
   private paymentService: PaymentService;
 
   constructor(private supabase: TypedSupabaseClient) {
     this.rideRepo = new RideRepository(supabase);
-    this.notifRepo = new NotificationRepository(supabase);
+    this.notifService = new NotificationService(createAdminClient());
     this.paymentService = new PaymentService(supabase);
   }
 
@@ -84,13 +90,13 @@ export class RideService {
     const list = (riders || []) as { user_id: string }[];
     await Promise.all(
       list.map((r) =>
-        this.notifRepo.create({
-          user_id: r.user_id,
+        this.notifService.notify({
+          userId: r.user_id,
           type: "ride_request",
           title: "New Ride Request",
           body: "A new ride request is available. Open the driver app to accept.",
           data: { ride_id: rideId },
-        })
+        }).catch((e) => console.error("Rider ping failed:", e))
       )
     );
   }
@@ -114,8 +120,8 @@ export class RideService {
 
     const ride = data as Ride;
     if (ride.passenger_id) {
-      await this.notifRepo.create({
-        user_id: ride.passenger_id,
+      await this.notifService.notify({
+        userId: ride.passenger_id,
         type: "ride_update",
         title: "Rider on the way!",
         body: "A rider accepted your request and is heading to your pickup.",
@@ -159,8 +165,8 @@ export class RideService {
 
     const notifyId = isPassenger ? ride.rider_id : ride.passenger_id;
     if (notifyId) {
-      await this.notifRepo.create({
-        user_id: notifyId,
+      await this.notifService.notify({
+        userId: notifyId,
         type: "ride_update",
         title: "Ride Update",
         body: `Your ride status is now: ${status.replace("_", " ")}`,
