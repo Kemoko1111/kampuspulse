@@ -68,16 +68,6 @@ export default function RiderDashboard() {
     activeDeliveryRef.current = activeDelivery;
   }, [activeDelivery]);
 
-  useEffect(() => {
-    isOnlineRef.current = isOnline;
-    // Going offline clears the broadcast queue; going online repopulates it
-    // via the rehydration effect below.
-    if (!isOnline) {
-      setPendingRides([]);
-      setPendingDeliveries([]);
-    }
-  }, [isOnline]);
-
   const addPendingRide = useCallback((ride: Ride) => {
     if (!isOnlineRef.current || activeRideRef.current) return;
     setPendingRides((prev) => (prev.some((r) => r.id === ride.id) ? prev : [...prev, ride]));
@@ -89,6 +79,30 @@ export default function RiderDashboard() {
     if (!isOnlineRef.current || activeDeliveryRef.current) return;
     setPendingDeliveries((prev) => (prev.some((x) => x.id === d.id) ? prev : [...prev, d]));
   }, []);
+  // Load all currently-open (unclaimed) requests. Called on mount and again
+  // whenever the rider goes online, so someone who comes online after requests
+  // were placed still sees them (not just those broadcast while already online).
+  const loadOpenRequests = useCallback(async () => {
+    const [{ data: rides }, { data: deliveries }] = await Promise.all([
+      supabase.from("rides").select("*").eq("status", "searching").is("rider_id", null).order("created_at", { ascending: false }).limit(10),
+      supabase.from("deliveries").select("*").eq("status", "searching").is("rider_id", null).order("created_at", { ascending: false }).limit(10),
+    ]);
+    if (rides) setPendingRides(rides as Ride[]);
+    if (deliveries) setPendingDeliveries(deliveries as DeliveryJob[]);
+  }, [supabase]);
+
+  useEffect(() => {
+    isOnlineRef.current = isOnline;
+    // Going offline clears the broadcast queue; going online reloads any open
+    // requests placed while the rider was away.
+    if (isOnline) {
+      loadOpenRequests();
+    } else {
+      setPendingRides([]);
+      setPendingDeliveries([]);
+    }
+  }, [isOnline, loadOpenRequests]);
+
   const removePendingDelivery = useCallback((id: string) => {
     setPendingDeliveries((prev) => prev.filter((x) => x.id !== id));
   }, []);
@@ -180,30 +194,10 @@ export default function RiderDashboard() {
 
     // Broadcast queue: all currently-open (unclaimed) requests, so a rider who
     // opens the app sees requests placed before they came online.
-    supabase
-      .from("rides")
-      .select("*")
-      .eq("status", "searching")
-      .is("rider_id", null)
-      .order("created_at", { ascending: false })
-      .limit(10)
-      .then(({ data }) => {
-        if (!cancelled && data) setPendingRides(data as Ride[]);
-      });
-
-    supabase
-      .from("deliveries")
-      .select("*")
-      .eq("status", "searching")
-      .is("rider_id", null)
-      .order("created_at", { ascending: false })
-      .limit(10)
-      .then(({ data }) => {
-        if (!cancelled && data) setPendingDeliveries(data as DeliveryJob[]);
-      });
+    loadOpenRequests();
 
     return () => { cancelled = true; };
-  }, [profile?.id, supabase]);
+  }, [profile?.id, supabase, loadOpenRequests]);
 
   const updateLocation = useCallback(async (lat: number, lng: number) => {
     setRiderLocation([lat, lng]);
