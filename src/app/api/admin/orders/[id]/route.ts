@@ -2,6 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { handleApiError } from "@/lib/errors/app-error";
 import { requireRole } from "@/lib/middleware/auth";
 import { AppError } from "@/lib/errors/app-error";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { NotificationService } from "@/lib/services/notification.service";
+
+// Buyer-facing labels for the order statuses an admin can set.
+const ORDER_STATUS_MESSAGE: Record<string, string> = {
+  confirmed: "Your order has been confirmed.",
+  processing: "Your order is being prepared.",
+  shipped: "Your order is out for delivery.",
+  delivered: "Your order has been delivered.",
+  cancelled: "Your order was cancelled.",
+};
 
 /* ─── GET /api/admin/orders/[id] — Fetch single order with full details ─── */
 export async function GET(
@@ -206,6 +217,26 @@ export async function PATCH(
       resource_id: id,
       new_data: updatePayload,
     } as never);
+
+    // Notify the buyer of the status change (in-app + push). Previously admin
+    // order changes notified nobody. Admin-backed service — it writes to the
+    // buyer's notifications. Best-effort.
+    const newStatus = updatePayload.status as string | undefined;
+    const order = updatedOrder as { buyer?: { id?: string } | null } | null;
+    const buyerId = order?.buyer?.id;
+    if (newStatus && buyerId && ORDER_STATUS_MESSAGE[newStatus]) {
+      try {
+        await new NotificationService(createAdminClient()).notify({
+          userId: buyerId,
+          type: "order_update",
+          title: "Order Update",
+          body: ORDER_STATUS_MESSAGE[newStatus],
+          data: { order_id: id, status: newStatus },
+        });
+      } catch (e) {
+        console.error("Order status notification failed:", e);
+      }
+    }
 
     return NextResponse.json({ order: updatedOrder });
   } catch (error) {
