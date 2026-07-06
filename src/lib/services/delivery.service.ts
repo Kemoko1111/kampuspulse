@@ -227,6 +227,12 @@ export class DeliveryService {
     const { data, error: updateError } = await this.rideRepo.updateDelivery(deliveryId, updates);
     if (updateError) throw updateError;
 
+    // Delivering credits the rider's wallet (90% of the fee, 10% platform fee)
+    // so delivery earnings are real money — same as rides/tasks.
+    if (status === "delivered" && delivery.rider_id) {
+      await this.creditRiderEarnings(delivery.rider_id, delivery.estimated_fee || 0, `Delivery ${deliveryId}`, { delivery_id: deliveryId });
+    }
+
     // If this delivery is fulfilling an EDWOM order, mirror the rider's
     // progress onto the order so the buyer's order-tracking timeline stays in
     // sync. Only uses order statuses allowed by the DB CHECK constraint
@@ -256,5 +262,28 @@ export class DeliveryService {
     }
 
     return data;
+  }
+
+  // Credit a rider's wallet with earnings (90% of gross, 10% platform fee).
+  // Same as RideService.creditRiderEarnings — admin-backed, best-effort.
+  private async creditRiderEarnings(riderId: string, gross: number, label: string, meta: Record<string, unknown>) {
+    if (gross <= 0) return;
+    try {
+      const net = Math.round(gross * 0.9 * 100) / 100;
+      const admin = createAdminClient();
+      await admin.rpc("increment_wallet_balance", { p_user_id: riderId, p_amount: net } as never);
+      await admin.from("transactions").insert({
+        user_id: riderId,
+        type: "payout",
+        amount: net,
+        payment_method: "wallet",
+        reference: `EARN_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        status: "success",
+        description: `Earnings: ${label}`,
+        metadata: { ...meta, gross, platform_fee_rate: 0.1 },
+      } as never);
+    } catch (e) {
+      console.error("Rider earnings credit failed:", e);
+    }
   }
 }

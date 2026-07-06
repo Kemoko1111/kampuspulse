@@ -163,6 +163,13 @@ export class RideService {
     const { data, error: updateError } = await this.rideRepo.update(rideId, updates);
     if (updateError) throw updateError;
 
+    // Completing a ride credits the rider's wallet (90% of fare, 10% platform
+    // fee — same split as task escrow), so "earnings" are real money, not just
+    // a display sum. Admin-backed money movement, best-effort.
+    if (status === "completed" && ride.rider_id) {
+      await this.creditRiderEarnings(ride.rider_id, ride.estimated_fare || 0, `Ride ${rideId}`, { ride_id: rideId });
+    }
+
     const notifyId = isPassenger ? ride.rider_id : ride.passenger_id;
     if (notifyId) {
       await this.notifService.notify({
@@ -192,5 +199,30 @@ export class RideService {
 
     await this.rideRepo.update(rideId, { payment_reference: payment.reference });
     return payment;
+  }
+
+  // Credit a rider's wallet with their earnings (90% of gross; 10% platform
+  // fee). Admin-backed so it can write another user's wallet/transaction rows.
+  // Best-effort: a wallet hiccup mustn't block the ride/delivery from
+  // completing. Shared by rides and (via export) deliveries.
+  private async creditRiderEarnings(riderId: string, gross: number, label: string, meta: Record<string, unknown>) {
+    if (gross <= 0) return;
+    try {
+      const net = Math.round(gross * 0.9 * 100) / 100;
+      const admin = createAdminClient();
+      await admin.rpc("increment_wallet_balance", { p_user_id: riderId, p_amount: net } as never);
+      await admin.from("transactions").insert({
+        user_id: riderId,
+        type: "payout",
+        amount: net,
+        payment_method: "wallet",
+        reference: `EARN_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        status: "success",
+        description: `Earnings: ${label}`,
+        metadata: { ...meta, gross, platform_fee_rate: 0.1 },
+      } as never);
+    } catch (e) {
+      console.error("Rider earnings credit failed:", e);
+    }
   }
 }
