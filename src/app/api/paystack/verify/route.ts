@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AppError, handleApiError } from "@/lib/errors/app-error";
 import { requireProfile } from "@/lib/middleware/auth";
+import { rateLimit } from "@/lib/middleware/rate-limit";
 import { verifyPaymentSchema } from "@/lib/validators/payment";
 import { PaymentService } from "@/lib/services/payment.service";
 
 export async function POST(request: NextRequest) {
   try {
     const { supabase, profile } = await requireProfile();
+    await rateLimit(profile.id, "payment");
     const body = verifyPaymentSchema.parse(await request.json());
 
     // Without this, any authenticated user could pass an arbitrary/guessed

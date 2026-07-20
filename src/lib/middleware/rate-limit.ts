@@ -1,13 +1,6 @@
 import { Ratelimit } from "@upstash/ratelimit";
-import { Redis } from "@upstash/redis";
 import { AppError } from "@/lib/errors/app-error";
-
-const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
-  ? new Redis({
-      url: process.env.UPSTASH_REDIS_REST_URL,
-      token: process.env.UPSTASH_REDIS_REST_TOKEN,
-    })
-  : null;
+import { redis } from "@/lib/redis";
 
 const limiters = {
   public: redis
@@ -15,6 +8,15 @@ const limiters = {
     : null,
   auth: redis
     ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(30, "1 m"), prefix: "rl:auth" })
+    : null,
+  // Payment-initiating endpoints (Paystack init/verify, wallet top-up, task/ride
+  // pay) — tighter than "public" since each call has a real cost (a Paystack API
+  // request) and a real abuse incentive (spamming escrow/payment attempts).
+  payment: redis
+    ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, "1 m"), prefix: "rl:payment" })
+    : null,
+  upload: redis
+    ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(20, "1 m"), prefix: "rl:upload" })
     : null,
 };
 
@@ -32,12 +34,19 @@ function inMemoryRateLimit(key: string, limit: number): boolean {
   return true;
 }
 
+const LIMITS: Record<keyof typeof limiters, number> = {
+  public: 100,
+  auth: 30,
+  payment: 10,
+  upload: 20,
+};
+
 export async function rateLimit(
   identifier: string,
-  type: "public" | "auth" = "public"
+  type: keyof typeof limiters = "public"
 ) {
   const limiter = limiters[type];
-  const limit = type === "auth" ? 30 : 100;
+  const limit = LIMITS[type];
 
   if (limiter) {
     const { success } = await limiter.limit(identifier);

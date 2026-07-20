@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { handleApiError } from "@/lib/errors/app-error";
 import { requireProfile } from "@/lib/middleware/auth";
 import { validateCsrf } from "@/lib/middleware/csrf";
+import { rateLimit } from "@/lib/middleware/rate-limit";
 import { TaskService } from "@/lib/services/task.service";
 
 // Fund a task's escrow — charges the poster the full reward. On payment
@@ -16,6 +17,7 @@ export async function POST(
     await validateCsrf(request);
     const { id } = await params;
     const { supabase, profile, user } = await requireProfile();
+    await rateLimit(profile.id, "payment");
 
     const service = new TaskService(supabase);
     const payment = await service.initiateEscrowPayment(id, profile.id, user.email!);

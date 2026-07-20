@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { handleApiError } from "@/lib/errors/app-error";
 import { requireProfile } from "@/lib/middleware/auth";
 import { validateCsrf } from "@/lib/middleware/csrf";
+import { rateLimit } from "@/lib/middleware/rate-limit";
 import { uploadSchema } from "@/lib/validators/upload";
 import { UploadService } from "@/lib/services/upload.service";
 
@@ -9,6 +10,7 @@ export async function POST(request: NextRequest) {
   try {
     await validateCsrf(request);
     const { supabase, profile, user } = await requireProfile();
+    await rateLimit(profile.id, "upload");
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
     const bucket = formData.get("bucket") as string;

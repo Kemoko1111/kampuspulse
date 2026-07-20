@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { handleApiError } from "@/lib/errors/app-error";
 import { requireProfile } from "@/lib/middleware/auth";
 import { validateCsrf } from "@/lib/middleware/csrf";
+import { rateLimit } from "@/lib/middleware/rate-limit";
 import { initializePaymentSchema } from "@/lib/validators/payment";
 import { PaymentService } from "@/lib/services/payment.service";
 
@@ -9,6 +10,7 @@ export async function POST(request: NextRequest) {
   try {
     await validateCsrf(request);
     const { supabase, profile } = await requireProfile();
+    await rateLimit(profile.id, "payment");
     const body = initializePaymentSchema.parse(await request.json());
 
     const service = new PaymentService(supabase);

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { handleApiError, AppError } from "@/lib/errors/app-error";
 import { requireProfile } from "@/lib/middleware/auth";
 import { validateCsrf } from "@/lib/middleware/csrf";
+import { rateLimit } from "@/lib/middleware/rate-limit";
 import { PaymentService } from "@/lib/services/payment.service";
 import { z } from "zod";
 
@@ -16,6 +17,7 @@ export async function POST(request: NextRequest) {
   try {
     await validateCsrf(request);
     const { supabase, profile, user } = await requireProfile();
+    await rateLimit(profile.id, "payment");
     const { amount } = schema.parse(await request.json());
     if (amount <= 0) throw new AppError("Amount must be positive", 400);
 

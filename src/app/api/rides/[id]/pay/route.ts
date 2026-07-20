@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { handleApiError } from "@/lib/errors/app-error";
 import { requireProfile } from "@/lib/middleware/auth";
 import { validateCsrf } from "@/lib/middleware/csrf";
+import { rateLimit } from "@/lib/middleware/rate-limit";
 import { RideService } from "@/lib/services/ride.service";
 
 export async function POST(
@@ -12,6 +13,7 @@ export async function POST(
     await validateCsrf(request);
     const { id } = await params;
     const { supabase, profile, user } = await requireProfile();
+    await rateLimit(profile.id, "payment");
 
     const service = new RideService(supabase);
     const payment = await service.initiateRidePayment(id, profile.id, user.email!);

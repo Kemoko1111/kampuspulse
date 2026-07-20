@@ -6,7 +6,11 @@ import { z } from "zod";
 
 const schema = z.object({
   status: z.enum(["active", "suspended", "pending", "banned"]).optional(),
-  role: z.enum(["student", "vendor", "rider", "admin"]).optional(),
+  // 'vendor' was retired by migration 012_kampuspulse_refactor.sql (existing
+  // vendors reassigned to 'student', and profiles_role_check no longer allows
+  // it) — allowing it here let an admin request pass validation and then fail
+  // with a raw Postgres constraint-violation error at the update below.
+  role: z.enum(["student", "rider", "admin"]).optional(),
 });
 
 export async function PATCH(
