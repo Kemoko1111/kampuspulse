@@ -59,8 +59,24 @@ export default function SettingsPage() {
     }
   }, []);
 
-  const handleDangerAction = (action: string) => {
-    alert(`The ${action} feature is coming soon.`);
+  const [resetting, setResetting] = useState(false);
+
+  const handleResetDashboard = async () => {
+    if (!confirm("Reset all platform settings to their defaults? This cannot be undone.")) return;
+    setResetting(true);
+    try {
+      const res = await apiFetch("/api/admin/settings", {
+        method: "PATCH",
+        body: JSON.stringify(DEFAULT_SETTINGS),
+      });
+      if (!res.ok) throw new Error();
+      setSettings(DEFAULT_SETTINGS);
+      toast.success("Dashboard settings reset to defaults");
+    } catch {
+      toast.error("Failed to reset settings");
+    } finally {
+      setResetting(false);
+    }
   };
 
   return (
@@ -192,8 +208,8 @@ export default function SettingsPage() {
             <button onClick={handleClearLogs} disabled={clearingLogs} className="px-4 py-2.5 rounded-xl border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors flex items-center gap-2 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed">
               {clearingLogs ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />} Clear All Logs
             </button>
-            <button onClick={() => handleDangerAction("Reset Dashboard")} className="px-4 py-2.5 rounded-xl border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors flex items-center gap-2 text-sm font-semibold">
-              <RotateCcw className="w-4 h-4" /> Reset Dashboard
+            <button onClick={handleResetDashboard} disabled={resetting} className="px-4 py-2.5 rounded-xl border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors flex items-center gap-2 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed">
+              {resetting ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />} Reset Dashboard
             </button>
           </div>
         </div>

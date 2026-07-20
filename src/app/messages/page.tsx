@@ -9,6 +9,8 @@ import {
 } from "lucide-react";
 import { cn, formatRelativeTime, getInitials } from "@/lib/utils";
 import { useRealtimeMessages } from "@/hooks";
+import { useVideoCall } from "@/hooks/useVideoCall";
+import { VideoCallModal } from "@/components/messages/VideoCallModal";
 import { useAuth } from "@/contexts/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { uploadFile, startConversation } from "@/lib/api-client";
@@ -63,6 +65,8 @@ export default function MessagesPage() {
     sendMessage,
     sendTypingIndicator,
   } = useRealtimeMessages(activeConvo);
+
+  const videoCall = useVideoCall(activeConvo, profile?.id);
 
   const fetchRooms = useCallback(async () => {
     setRoomsLoading(true);
@@ -336,9 +340,10 @@ export default function MessagesPage() {
                       </button>
                     )}
                     <button
-                      onClick={() => toast("In-app video calling is coming soon")}
-                      title="Video call (coming soon)"
-                      className="w-8 h-8 rounded-lg glass border border-white/10 flex items-center justify-center hover:bg-white/10 transition-all">
+                      onClick={videoCall.startCall}
+                      disabled={videoCall.status !== "idle"}
+                      title="Video call"
+                      className="w-8 h-8 rounded-lg glass border border-white/10 flex items-center justify-center hover:bg-white/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
                       <Video className="w-3.5 h-3.5" />
                     </button>
                   </div>
@@ -440,6 +445,17 @@ export default function MessagesPage() {
           </div>
         </div>
       </div>
+
+      <VideoCallModal
+        status={videoCall.status}
+        error={videoCall.error}
+        callerName={activeOther?.full_name}
+        localVideoRef={videoCall.localVideoRef}
+        remoteVideoRef={videoCall.remoteVideoRef}
+        onAccept={videoCall.acceptCall}
+        onReject={videoCall.rejectCall}
+        onEnd={videoCall.endCall}
+      />
     </div>
   );
 }

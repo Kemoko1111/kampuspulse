@@ -1,6 +1,7 @@
 import type { TypedSupabaseClient } from "@/lib/supabase/types";
 import { AppError } from "@/lib/errors/app-error";
 import { isDevPaymentReference, isPaystackConfigured } from "@/lib/payments/config";
+import { logger } from "@/lib/logger";
 
 const PAYSTACK_BASE = "https://api.paystack.co";
 
@@ -36,7 +37,7 @@ export class PaymentService {
       const { DeliveryService } = await import("@/lib/services/delivery.service");
       await new DeliveryService(this.supabase).dispatchForOrder(orderId);
     } catch (e) {
-      console.error("Order delivery dispatch failed:", e);
+      logger.error("Order delivery dispatch failed", e, { orderId });
     }
   }
 
@@ -118,13 +119,108 @@ export class PaymentService {
     const { data: ok } = await this.supabase.rpc("decrement_wallet_balance", {
       p_user_id: params.profileId,
       p_amount: params.amount,
-    } as never);
+    });
     if (!ok) throw new AppError("Insufficient wallet balance", 400, "INSUFFICIENT_FUNDS");
 
     const reference = `CP_WALLET_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     await this.settleConfirmedPayment(params, reference, "wallet");
 
     return { reference, dev_mode: true, redirect_url: this.redirectFor(params) };
+  }
+
+  // Withdraw wallet balance to a Ghanaian mobile money account via Paystack
+  // Transfers. Debit-first: the wallet is decremented atomically before any
+  // external call, then credited back if the transfer fails to create or
+  // initiate — the same compensating-transaction shape as a failed payment,
+  // just in the opposite direction. `transfer.success`/`transfer.failed`
+  // webhook events (see paystack/webhook/route.ts) finalize a transfer that
+  // came back "pending" (some Paystack account configs require OTP/manual
+  // approval before a transfer actually completes).
+  async initiateWithdrawal(profileId: string, amount: number, phone: string, provider: "mtn_momo" | "telecel" | "airteltigo") {
+    const { data: ok } = await this.supabase.rpc("decrement_wallet_balance", {
+      p_user_id: profileId,
+      p_amount: amount,
+    });
+    if (!ok) throw new AppError("Insufficient wallet balance", 400, "INSUFFICIENT_FUNDS");
+
+    const reference = `CP_WD_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+    const recordTransaction = (status: "pending" | "success" | "failed") =>
+      this.supabase.from("transactions").insert({
+        user_id: profileId,
+        type: "withdrawal",
+        amount,
+        payment_method: provider,
+        reference,
+        status,
+        description: `Wallet withdrawal to ${provider}`,
+      } as never);
+
+    if (!isPaystackConfigured()) {
+      // No real payout can happen without Paystack configured — this mirrors
+      // completeDevPayment's simulated-success path for local development
+      // only, so the withdrawal UI is testable without live credentials.
+      await recordTransaction("success");
+      return { reference, dev_mode: true, status: "success" as const };
+    }
+
+    try {
+      // NOTE: bank_code values below (MTN/VOD/ATL) are Paystack's documented
+      // Ghana mobile-money transfer-recipient codes at the time this was
+      // written. Verify against Paystack's current API reference before
+      // relying on this in production — an incorrect code fails recipient
+      // creation outright (caught below, wallet is refunded, nothing is lost
+      // silently), but it would mean no real withdrawal can succeed.
+      const bankCode = { mtn_momo: "MTN", telecel: "VOD", airteltigo: "ATL" }[provider];
+
+      const recipientRes = await fetch(`${PAYSTACK_BASE}/transferrecipient`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          type: "mobile_money",
+          name: `KampusPulse wallet withdrawal`,
+          account_number: phone,
+          bank_code: bankCode,
+          currency: "GHS",
+        }),
+      });
+      const recipientResult = await recipientRes.json();
+      if (!recipientResult.status) {
+        throw new AppError(recipientResult.message || "Could not create transfer recipient", 400);
+      }
+
+      const transferRes = await fetch(`${PAYSTACK_BASE}/transfer`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          source: "balance",
+          amount: Math.round(amount * 100),
+          recipient: recipientResult.data.recipient_code,
+          reason: "KampusPulse wallet withdrawal",
+          reference,
+        }),
+      });
+      const transferResult = await transferRes.json();
+      if (!transferResult.status) {
+        throw new AppError(transferResult.message || "Transfer failed", 400);
+      }
+
+      const status: "pending" | "success" = transferResult.data?.status === "success" ? "success" : "pending";
+      await recordTransaction(status);
+      return { reference, status };
+    } catch (err) {
+      // Compensate: the debit above already happened, so a failed transfer
+      // must credit the wallet back rather than silently losing the funds.
+      await this.supabase.rpc("increment_wallet_balance", { p_user_id: profileId, p_amount: amount });
+      await recordTransaction("failed");
+      throw err instanceof AppError ? err : new AppError("Withdrawal failed", 502);
+    }
   }
 
   private async completeDevPayment(params: InitializePaymentParams) {

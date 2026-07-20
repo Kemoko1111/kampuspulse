@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 import { NotificationService } from "@/lib/services/notification.service";
+import { logger } from "@/lib/logger";
 
 export async function POST(request: NextRequest) {
   const body = await request.text();
@@ -79,7 +80,7 @@ export async function POST(request: NextRequest) {
         const { DeliveryService } = await import("@/lib/services/delivery.service");
         await new DeliveryService(supabase as never).dispatchForOrder(oid);
       } catch (e) {
-        console.error("Order delivery dispatch failed:", e);
+        logger.error("Order delivery dispatch failed", e, { orderId: oid });
       }
 
       const { data: order } = await supabase
@@ -147,6 +148,34 @@ export async function POST(request: NextRequest) {
     const { transaction_reference } = event.data;
     await supabase.from("transactions").update({ status: "reversed" }).eq("reference", transaction_reference);
     await supabase.from("refunds").update({ status: "processed" }).eq("paystack_reference", transaction_reference);
+  }
+
+  // Finalizes a withdrawal that PaymentService.initiateWithdrawal() left as
+  // "pending" (some Paystack account configs require OTP/manual approval
+  // before a transfer actually completes, so the synchronous API response
+  // alone isn't final).
+  if (event.event === "transfer.success") {
+    const { reference } = event.data;
+    await supabase.from("transactions").update({ status: "success" }).eq("reference", reference).neq("status", "success");
+  }
+
+  // A transfer that fails or gets reversed after being marked "pending" means
+  // the money never actually left — the wallet was already debited when the
+  // withdrawal was initiated, so it must be credited back here. Guarded by
+  // `.neq("status", "failed")` so a retried webhook delivery can't credit
+  // the wallet twice for the same failed transfer.
+  if (event.event === "transfer.failed" || event.event === "transfer.reversed") {
+    const { reference } = event.data;
+    const { data: updated } = await supabase
+      .from("transactions")
+      .update({ status: "failed" })
+      .eq("reference", reference)
+      .neq("status", "failed")
+      .select("user_id, amount");
+
+    for (const txn of (updated ?? []) as { user_id: string; amount: number }[]) {
+      await supabase.rpc("increment_wallet_balance", { p_user_id: txn.user_id, p_amount: txn.amount });
+    }
   }
 
   return NextResponse.json({ received: true });

@@ -20,6 +20,7 @@ export default function ProfilePage() {
   const { profile, loading } = useProfile();
   const { orders } = useOrders();
   const [toppingUp, setToppingUp] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
@@ -75,6 +76,50 @@ export default function ProfilePage() {
       toast.error(e instanceof Error ? e.message : "Top up failed");
     } finally {
       setToppingUp(false);
+    }
+  };
+
+  const handleWithdraw = async () => {
+    const input = window.prompt(`How much would you like to withdraw? (GHS, available: ${formatCurrency(walletBalance)})`);
+    if (!input) return;
+    const amount = Number(input);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast.error("Enter a valid amount");
+      return;
+    }
+
+    const phone = window.prompt("Mobile money number to receive the withdrawal:", profile?.phone || "");
+    if (!phone) return;
+
+    const providerInput = window.prompt("Network — type MTN, Telecel, or AirtelTigo:", "MTN");
+    if (!providerInput) return;
+    const providerMap: Record<string, "mtn_momo" | "telecel" | "airteltigo"> = {
+      mtn: "mtn_momo", telecel: "telecel", vodafone: "telecel", airteltigo: "airteltigo",
+    };
+    const provider = providerMap[providerInput.trim().toLowerCase()];
+    if (!provider) {
+      toast.error("Unrecognized network — type MTN, Telecel, or AirtelTigo");
+      return;
+    }
+
+    setWithdrawing(true);
+    try {
+      const res = await apiFetch("/api/wallet/withdraw", {
+        method: "POST",
+        body: JSON.stringify({ amount, phone, provider }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Withdrawal failed");
+      toast.success(
+        json.data?.status === "pending"
+          ? `GHS ${amount.toFixed(2)} withdrawal is processing`
+          : `GHS ${amount.toFixed(2)} sent to your mobile money`
+      );
+      window.location.reload();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Withdrawal failed");
+    } finally {
+      setWithdrawing(false);
     }
   };
 
@@ -202,9 +247,10 @@ export default function ProfilePage() {
                   {toppingUp ? "Starting…" : "Top Up"}
                 </button>
                 <button
-                  onClick={() => toast("Withdrawals to mobile money are coming soon")}
-                  className="glass border border-white/10 rounded-xl px-4 py-2 text-sm font-medium hover:bg-white/10 transition-all">
-                  Withdraw
+                  onClick={handleWithdraw}
+                  disabled={withdrawing || walletBalance <= 0}
+                  className="glass border border-white/10 rounded-xl px-4 py-2 text-sm font-medium hover:bg-white/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                  {withdrawing ? "Processing…" : "Withdraw"}
                 </button>
               </div>
             </div>

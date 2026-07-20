@@ -19,3 +19,9 @@ export const refundSchema = z.object({
 export const verifyPaymentSchema = z.object({
   reference: z.string().min(1),
 });
+
+export const withdrawSchema = z.object({
+  amount: z.number().positive().max(10000),
+  phone: z.string().min(9).max(15),
+  provider: z.enum(["mtn_momo", "telecel", "airteltigo"]),
+});
