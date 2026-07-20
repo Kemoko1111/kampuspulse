@@ -1,5 +1,6 @@
 import { initializeApp, getApps, cert, type App } from "firebase-admin/app";
 import { getMessaging } from "firebase-admin/messaging";
+import { logger } from "@/lib/logger";
 
 let app: App | undefined;
 
@@ -38,6 +39,6 @@ export async function sendPushNotification(
       data,
     });
   } catch (error) {
-    console.error("FCM send error:", error);
+    logger.error("FCM send error", error, { tokenCount: tokens.length });
   }
 }
