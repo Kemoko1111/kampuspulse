@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { handleApiError } from "@/lib/errors/app-error";
 import { rateLimit } from "@/lib/middleware/rate-limit";
+import { passwordSchema } from "@/lib/validators/auth";
 import { z } from "zod";
 
 const schema = z.object({
   email: z.string().email(),
-  password: z.string().min(6),
+  password: passwordSchema,
   fullName: z.string().min(1),
   phone: z.string().optional(),
   role: z.enum(["student", "rider"]),

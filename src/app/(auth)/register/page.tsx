@@ -299,7 +299,7 @@ export default function RegisterPage() {
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <input id="reg-password" type={showPassword ? "text" : "password"} value={form.password}
                     onChange={e => updateForm("password", e.target.value)}
-                    placeholder="Min. 8 characters" className="input-premium pl-10 pr-10" />
+                    minLength={8} placeholder="Min. 8 characters, with a letter and a number" className="input-premium pl-10 pr-10" />
                   <button type="button" onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}

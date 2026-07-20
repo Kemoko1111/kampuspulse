@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Mail, Lock, ArrowLeft, Zap, CheckCircle, AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { createClient } from "@/lib/supabase/client";
+import { passwordSchema } from "@/lib/validators/auth";
 
 // Reached two ways: (1) directly, to request a reset email, or (2) via the
 // link in that email, which authenticates the user and redirects back here
@@ -23,8 +24,9 @@ function NewPasswordForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters.");
+    const result = passwordSchema.safeParse(password);
+    if (!result.success) {
+      setError(result.error.issues[0].message);
       return;
     }
     if (password !== confirmPassword) {
@@ -67,7 +69,7 @@ function NewPasswordForm() {
         <label className="text-sm font-medium">New password</label>
         <div className="relative">
           <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <input type="password" required minLength={6} value={password}
+          <input type="password" required minLength={8} value={password}
             onChange={e => setPassword(e.target.value)}
             placeholder="••••••••" className="input-premium pl-10" />
         </div>
@@ -76,7 +78,7 @@ function NewPasswordForm() {
         <label className="text-sm font-medium">Confirm new password</label>
         <div className="relative">
           <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <input type="password" required minLength={6} value={confirmPassword}
+          <input type="password" required minLength={8} value={confirmPassword}
             onChange={e => setConfirmPassword(e.target.value)}
             placeholder="••••••••" className="input-premium pl-10" />
         </div>

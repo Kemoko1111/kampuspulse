@@ -6,6 +6,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowLeft, Lock, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { passwordSchema } from "@/lib/validators/auth";
 import { toast } from "react-hot-toast";
 
 // Real change-password flow — the settings "Change Password" row was a dead
@@ -21,8 +22,9 @@ export default function ChangePasswordPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters.");
+    const result = passwordSchema.safeParse(password);
+    if (!result.success) {
+      setError(result.error.issues[0].message);
       return;
     }
     if (password !== confirm) {
@@ -63,7 +65,7 @@ export default function ChangePasswordPage() {
             <div className="relative">
               <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
-                required minLength={6} placeholder="At least 6 characters" className="input-premium w-full pl-10" />
+                required minLength={8} placeholder="At least 8 characters, with a letter and a number" className="input-premium w-full pl-10" />
             </div>
           </div>
           <div>
@@ -71,7 +73,7 @@ export default function ChangePasswordPage() {
             <div className="relative">
               <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)}
-                required minLength={6} placeholder="Re-enter new password" className="input-premium w-full pl-10" />
+                required minLength={8} placeholder="Re-enter new password" className="input-premium w-full pl-10" />
             </div>
           </div>
           <button type="submit" disabled={loading} className="btn-primary w-full py-3 flex items-center justify-center gap-2">
