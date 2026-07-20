@@ -8,6 +8,13 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./tests/setup.ts"],
+    // Integration tests hit a real local Supabase instance (see
+    // vitest.integration.config.ts) — excluded here so `npm test` stays fast
+    // and doesn't fail in environments without Docker/Supabase running.
+    exclude: [
+      "**/node_modules/**", "**/dist/**", "**/.next/**", "**/cypress/**",
+      "**/.{idea,git,cache,output,temp}/**", "tests/integration/**",
+    ],
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],

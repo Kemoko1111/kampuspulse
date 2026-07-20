@@ -19,6 +19,22 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run test
+      # Integration tests hit a real local Supabase/Postgres instance rather
+      # than mocking it — this is exactly what caught several RLS policies
+      # that looked correct in the migration source but were either missing
+      # an explicit WITH CHECK or had RLS never actually enabled on the
+      # table at all (see migrations 031, 033, 034, 035). A mocked unit test
+      # can't catch that class of bug; only a real database can.
+      - run: npx supabase start
+      - run: npx supabase db reset
+      - run: ./scripts/local-db-grants.sh
+      - run: npm run test:integration
+      # Catches vulnerable pinned dependencies automatically (this is exactly
+      # how the Next.js 15.0.5 / CVE-2025-29927 issue slipped through —
+      # nothing before this ran an audit). Gates on high/critical only, since
+      # lower-severity findings are common in transitive deps and too noisy
+      # to hard-fail every build on.
+      - run: npm audit --audit-level=high
       - run: npm run build
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
