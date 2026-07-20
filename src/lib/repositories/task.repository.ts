@@ -1,4 +1,5 @@
 import type { TypedSupabaseClient } from "@/lib/supabase/types";
+import { buildSearchOrFilter } from "./postgrest-filter";
 
 export class TaskRepository {
   constructor(private supabase: TypedSupabaseClient) {}
@@ -19,7 +20,7 @@ export class TaskRepository {
       .in("status", ["open", "assigned", "in_progress"]);
 
     if (params.category) query = query.eq("category", params.category);
-    if (params.search) query = query.or(`title.ilike.%${params.search}%,description.ilike.%${params.search}%`);
+    if (params.search) query = query.or(buildSearchOrFilter(["title", "description"], params.search));
     if (params.urgent) query = query.eq("is_urgent", true);
     if (params.minReward !== undefined) query = query.gte("reward", params.minReward);
     if (params.maxReward !== undefined) query = query.lte("reward", params.maxReward);

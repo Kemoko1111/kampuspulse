@@ -1,4 +1,5 @@
 import type { TypedSupabaseClient } from "@/lib/supabase/types";
+import { buildSearchOrFilter } from "./postgrest-filter";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -51,7 +52,7 @@ export class ProductRepository {
       query = query.eq("category_id", categoryId);
     }
     if (params.search) {
-      query = query.or(`title.ilike.%${params.search}%,description.ilike.%${params.search}%`);
+      query = query.or(buildSearchOrFilter(["title", "description"], params.search));
     }
     if (params.condition) query = query.eq("condition", params.condition);
     if (params.minPrice) query = query.gte("price", params.minPrice);
