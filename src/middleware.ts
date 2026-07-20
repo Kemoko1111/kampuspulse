@@ -11,8 +11,44 @@ const ADMIN_ROUTES = ["/admin"];
 const RIDER_ROUTES = ["/rider"];
 const AUTH_ROUTES = ["/login", "/register", "/reset-password"];
 
+// script-src previously allowed 'unsafe-inline'/'unsafe-eval', which defeats
+// CSP's XSS protection entirely — any injected inline script or eval-based
+// payload would run despite the header being present. Neither is actually
+// needed: the app has no dangerouslySetInnerHTML/inline <script> anywhere,
+// and Paystack checkout is a full-page redirect (never loads Paystack's
+// client-side JS), so a nonce + 'strict-dynamic' policy (Next.js's
+// documented approach — https://nextjs.org/docs/app/guides/content-security-policy)
+// covers Next's own bootstrap/RSC scripts without reopening either hole.
+// 'unsafe-eval' is kept in development only, since `next dev`'s Fast Refresh
+// relies on eval-wrapped modules; production never includes it.
+function buildCspHeader(nonce: string): string {
+  const isDev = process.env.NODE_ENV !== "production";
+  return [
+    `default-src 'self'`,
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""} https://js.paystack.co`,
+    `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com`,
+    `font-src 'self' https://fonts.gstatic.com`,
+    `img-src 'self' data: blob: https:`,
+    `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.paystack.co https://fcm.googleapis.com https://*.tile.openstreetmap.org https://nominatim.openstreetmap.org https://router.project-osrm.org`,
+    `frame-src https://js.paystack.co`,
+  ].join("; ") + ";";
+}
+
 export async function middleware(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request });
+  const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
+  const cspHeader = buildCspHeader(nonce);
+  request.headers.set("x-nonce", nonce);
+  request.headers.set("Content-Security-Policy", cspHeader);
+
+  // Every response this middleware can return — redirects included — carries
+  // the same CSP header, so the policy can't be bypassed by hitting a code
+  // path that forgot to set it.
+  function withCsp<T extends NextResponse>(response: T): T {
+    response.headers.set("Content-Security-Policy", cspHeader);
+    return response;
+  }
+
+  let supabaseResponse = withCsp(NextResponse.next({ request }));
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -22,7 +58,7 @@ export async function middleware(request: NextRequest) {
         getAll() { return request.cookies.getAll(); },
         setAll(cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[]) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-          supabaseResponse = NextResponse.next({ request });
+          supabaseResponse = withCsp(NextResponse.next({ request }));
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options as Parameters<typeof supabaseResponse.cookies.set>[2])
           );
@@ -48,18 +84,18 @@ export async function middleware(request: NextRequest) {
       .single();
 
     if (profile?.role === "admin") {
-      return NextResponse.redirect(new URL("/admin", request.url));
+      return withCsp(NextResponse.redirect(new URL("/admin", request.url)));
     } else if (profile?.role === "rider") {
-      return NextResponse.redirect(new URL("/rider", request.url));
+      return withCsp(NextResponse.redirect(new URL("/rider", request.url)));
     }
-    return NextResponse.redirect(new URL("/home", request.url));
+    return withCsp(NextResponse.redirect(new URL("/home", request.url)));
   }
 
   const isPrivate = PRIVATE_ROUTES.some((r) => pathname.startsWith(r));
   if (!user && isPrivate) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("redirectTo", pathname);
-    return NextResponse.redirect(loginUrl);
+    return withCsp(NextResponse.redirect(loginUrl));
   }
 
   // Bounce suspended/banned users off private pages (the API layer blocks
@@ -80,7 +116,7 @@ export async function middleware(request: NextRequest) {
           ? "Your account has been banned. Contact support."
           : "Your account is suspended. Contact support."
       );
-      return NextResponse.redirect(url);
+      return withCsp(NextResponse.redirect(url));
     }
   }
 
@@ -93,10 +129,10 @@ export async function middleware(request: NextRequest) {
       .single();
 
     if (ADMIN_ROUTES.some((r) => pathname.startsWith(r)) && profile?.role !== "admin") {
-      return NextResponse.redirect(new URL("/home", request.url));
+      return withCsp(NextResponse.redirect(new URL("/home", request.url)));
     }
     if (RIDER_ROUTES.some((r) => pathname.startsWith(r)) && profile?.role !== "rider" && profile?.role !== "admin") {
-      return NextResponse.redirect(new URL("/home", request.url));
+      return withCsp(NextResponse.redirect(new URL("/home", request.url)));
     }
   }
 
