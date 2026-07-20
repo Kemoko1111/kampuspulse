@@ -1,56 +1,52 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { requireProfile } from "@/lib/middleware/auth";
+import { handleApiError } from "@/lib/errors/app-error";
 
 export async function GET() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const { supabase, profile } = await requireProfile();
 
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("user_id", user.id)
-    .single();
+    // wallets.user_id stores the PROFILE id, not the auth user id — querying by
+    // user.id here always returned null, so the balance always showed GHS 0.
+    const { data: wallet } = await supabase
+      .from("wallets")
+      .select("balance, currency")
+      .eq("user_id", profile.id)
+      .maybeSingle();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  // wallets.user_id stores the PROFILE id, not the auth user id — querying by
-  // user.id here always returned null, so the balance always showed GHS 0.
-  const profileId = (data as { id: string }).id;
-  const { data: wallet } = await supabase
-    .from("wallets")
-    .select("balance, currency")
-    .eq("user_id", profileId)
-    .maybeSingle();
-
-  return NextResponse.json({ data: { ...(data as object), wallet } });
+    return NextResponse.json({ data: { ...(profile as object), wallet } });
+  } catch (error) {
+    return handleApiError(error);
+  }
 }
 
 export async function PATCH(request: NextRequest) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const { supabase, user } = await requireProfile();
 
-  const body = await request.json();
-  const allowedFields = [
-    "full_name", "bio", "phone", "location",
-    "hall_of_residence", "department", "year_of_study",
-    "avatar_url", "student_id", "notification_preferences",
-  ];
+    const body = await request.json();
+    const allowedFields = [
+      "full_name", "bio", "phone", "location",
+      "hall_of_residence", "department", "year_of_study",
+      "avatar_url", "student_id", "notification_preferences",
+    ];
 
-  const updates: Record<string, unknown> = {};
-  for (const field of allowedFields) {
-    if (body[field] !== undefined) updates[field] = body[field];
+    const updates: Record<string, unknown> = {};
+    for (const field of allowedFields) {
+      if (body[field] !== undefined) updates[field] = body[field];
+    }
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .update({ ...updates, updated_at: new Date().toISOString() } as never)
+      .eq("user_id", user.id)
+      .select()
+      .single();
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    return NextResponse.json({ data });
+  } catch (error) {
+    return handleApiError(error);
   }
-
-  const { data, error } = await supabase
-    .from("profiles")
-    .update({ ...updates, updated_at: new Date().toISOString() } as never)
-    .eq("user_id", user.id)
-    .select()
-    .single();
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  return NextResponse.json({ data });
 }

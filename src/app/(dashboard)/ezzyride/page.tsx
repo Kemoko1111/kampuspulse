@@ -22,8 +22,6 @@ interface OnlineRider {
   avatar: string | null;
   rating: number;
   trips: number;
-  lat: number | null;
-  lng: number | null;
 }
 
 interface RecentRideEntry {

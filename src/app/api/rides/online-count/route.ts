@@ -1,10 +1,18 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { requireAuth } from '@/lib/middleware/auth';
+import { handleApiError } from '@/lib/errors/app-error';
 
 export async function GET() {
   try {
-    const supabase = await createClient();
-    
+    // This is an aggregate "N riders online" widget shown to any signed-in
+    // user, not just those with an active ride against a specific rider — so
+    // it intentionally reads via the admin client (RLS now scopes
+    // rider_profiles reads to own-row / active-ride / admin only, see
+    // migration 030). The route itself must gate access instead.
+    await requireAuth();
+    const supabase = createAdminClient();
+
     // Count only riders who would ACTUALLY match a booking — same filters as
     // RideRepository.findAvailableRiders (available + verified + has a known
     // location). Counting is_available alone could show "3 riders online"
@@ -19,10 +27,12 @@ export async function GET() {
 
     if (error) throw error;
 
-    // Get a few actual online riders for the sidebar
+    // Get a few actual online riders for the sidebar. Only non-sensitive
+    // fields are exposed here — exact GPS coordinates are never rendered by
+    // any caller and must not leave this endpoint (see PROJECT_AUDIT.md).
     const { data: onlineRiders, error: ridersError } = await supabase
       .from('rider_profiles')
-      .select('id, user_id, rating, total_trips, current_lat, current_lng, profiles!rider_profiles_user_id_fkey(full_name, avatar_url)')
+      .select('id, rating, total_trips, profiles!rider_profiles_user_id_fkey(full_name, avatar_url)')
       .eq('is_available', true)
       .eq('is_verified', true)
       .not('current_lat', 'is', null)
@@ -35,8 +45,6 @@ export async function GET() {
       id: string;
       rating: number | null;
       total_trips: number | null;
-      current_lat: number | null;
-      current_lng: number | null;
       profiles: { full_name: string | null; avatar_url: string | null } | null;
     };
 
@@ -46,16 +54,13 @@ export async function GET() {
       avatar: r.profiles?.avatar_url,
       rating: r.rating || 5.0,
       trips: r.total_trips || 0,
-      lat: r.current_lat,
-      lng: r.current_lng,
     }));
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       count: count || 0,
       riders: formattedRiders
     });
   } catch (error) {
-    console.error('Error fetching online riders:', error);
-    return NextResponse.json({ error: 'Failed to fetch online riders' }, { status: 500 });
+    return handleApiError(error);
   }
 }
