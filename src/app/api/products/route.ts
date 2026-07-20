@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { handleApiError } from "@/lib/errors/app-error";
 import { rateLimit } from "@/lib/middleware/rate-limit";
 import { requireProfile } from "@/lib/middleware/auth";
@@ -32,7 +31,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     await validateCsrf(request);
-    const { profile } = await requireProfile();
+    const { supabase, profile } = await requireProfile();
 
     // Peer marketplace: any signed-in student can list an item. seller_id is
     // forced to their own profile id below, so they can't list as someone else.
@@ -41,9 +40,12 @@ export async function POST(request: NextRequest) {
       ["title", "description", "location"]
     );
 
-    // Use service role after auth check — avoids broken RLS until fix_products_rls.sql is applied
-    const admin = createAdminClient();
-    const repo = new ProductRepository(admin);
+    // The `products_insert` RLS policy (migrations/009_rls_policies.sql)
+    // already enforces seller_id ownership at the database layer too — no
+    // need to bypass it with the service-role client (that was only ever a
+    // workaround for a since-fixed RLS bug, tracked in a since-deleted
+    // supabase/fix_products_rls.sql).
+    const repo = new ProductRepository(supabase);
     const { data, error } = await repo.create({
       seller_id: profile.id,
       title: body.title,

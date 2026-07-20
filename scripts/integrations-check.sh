@@ -35,6 +35,7 @@ check "Upstash Redis" "UPSTASH_REDIS_REST_URL"
 
 echo ""
 echo "Next steps:"
-echo "  1. Run supabase/fix_all_rls.sql in Supabase SQL Editor (if not done)"
+echo "  1. Run supabase/full_setup.sql in Supabase SQL Editor (if not done) — regenerate it via"
+echo "     ./scripts/build-full-setup.sh after adding a new migration; never hand-edit it"
 echo "  2. Smoke test: sell → cart → checkout → post task → book ride"
 echo "  3. Optional later: Paystack, Firebase push, Google Maps"

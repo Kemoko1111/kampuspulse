@@ -58,7 +58,8 @@ kampuspulse/
 │   └── types/
 │       └── index.ts            # Full TypeScript types
 ├── supabase/
-│   └── schema.sql              # Complete PostgreSQL schema
+│   ├── migrations/              # Numbered migrations — the real source of truth
+│   └── full_setup.sql           # GENERATED (scripts/build-full-setup.sh) — run this for a fresh project
 ├── tailwind.config.ts          # Design system + brand colors
 ├── postcss.config.js
 ├── next.config.ts
@@ -192,8 +193,8 @@ vercel --prod
 
 ### Supabase (Backend)
 1. Create project at supabase.com
-2. Run `supabase/schema.sql` in SQL editor
-3. Enable Realtime on: `messages`, `notifications`, `rides`
+2. Run `supabase/full_setup.sql` in SQL editor (generated from `supabase/migrations/*` via `scripts/build-full-setup.sh` — regenerate it after adding a new migration, never hand-edit it directly)
+3. Run `supabase/enable_realtime.sql` in SQL editor (or enable Realtime manually on: `orders`, `rides`, `tasks`, `task_applications`, `messages`, `notifications`, `chat_rooms`, `rider_profiles`)
 4. Configure Auth providers (Email + Phone)
 
 ---
