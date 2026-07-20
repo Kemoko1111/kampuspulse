@@ -1,23 +1,27 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { requireRole } from "@/lib/middleware/auth";
+import { handleApiError } from "@/lib/errors/app-error";
+import { getOrSetCache } from "@/lib/cache";
+import type { TypedSupabaseClient } from "@/lib/supabase/types";
 
+// 17 queries (several full-table counts) on every dashboard load, with no
+// caching, will degrade linearly as tables grow. The data is identical for
+// every admin viewing it (nothing per-request/per-user), so a short-TTL
+// shared cache trades a little staleness (up to 30s) for cutting real load
+// on a dashboard that gets polled/reloaded often. The admin-role check still
+// runs on every request regardless of cache state — only the expensive query
+// fan-out is skipped on a cache hit.
 export async function GET() {
-  const supabase = await createClient();
-
-  // Verify admin role
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("user_id", user.id)
-    .single();
-
-  if ((profile as { role: string } | null)?.role !== "admin") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  try {
+    const { supabase } = await requireRole(["admin"]);
+    const data = await getOrSetCache("admin:metrics", 30, () => fetchMetrics(supabase));
+    return NextResponse.json(data);
+  } catch (error) {
+    return handleApiError(error);
   }
+}
 
+async function fetchMetrics(supabase: TypedSupabaseClient) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayISO = today.toISOString();
@@ -95,7 +99,7 @@ export async function GET() {
     revenueByDay[day] = (revenueByDay[day] || 0) + t.amount;
   });
 
-  return NextResponse.json({
+  return {
     metrics: {
       totalUsers: usersResult.count || 0,
       totalStudents: studentsResult.count || 0,
@@ -117,5 +121,5 @@ export async function GET() {
     recentOrders: recentOrdersResult.data || [],
     recentProducts: recentProductsResult.data || [],
     revenueByDay,
-  });
+  };
 }
