@@ -1,10 +1,18 @@
+import sanitizeHtml from "sanitize-html";
+
+// Regex tag-stripping is well known to be bypassable — malformed/nested
+// tags, encoded attributes, or event handlers split across whitespace can
+// all slip past a hand-rolled pattern. sanitize-html actually parses the
+// markup (via htmlparser2) rather than pattern-matching it, so it isn't
+// fooled by input shaped to defeat a regex. Every caller of this treats the
+// result as plain text, so the allowlist stays empty — strip all tags and
+// attributes, keep only text content.
 export function sanitizeText(input: string): string {
-  return input
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
-    .replace(/<[^>]*>/g, "")
-    .replace(/javascript:/gi, "")
-    .replace(/on\w+=/gi, "")
-    .trim();
+  return sanitizeHtml(input, {
+    allowedTags: [],
+    allowedAttributes: {},
+    disallowedTagsMode: "discard",
+  }).trim();
 }
 
 export function sanitizeObject<T extends Record<string, unknown>>(
