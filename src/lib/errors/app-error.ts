@@ -1,4 +1,5 @@
 import { ZodError } from "zod";
+import { logger } from "@/lib/logger";
 
 export class AppError extends Error {
   constructor(
@@ -33,6 +34,6 @@ export function handleApiError(error: unknown) {
       { status: 400 }
     );
   }
-  console.error("Unhandled error:", error);
+  logger.error("Unhandled error", error);
   return Response.json({ error: "Internal server error" }, { status: 500 });
 }

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { logger } from "@/lib/logger";
 
 function safeNextPath(next: string | null): string {
   if (!next || !next.startsWith("/") || next.startsWith("//")) return "/home";
@@ -79,7 +80,7 @@ export async function GET(request: NextRequest) {
             status: role === "student" ? "active" : "pending",
           } as never).eq("user_id", sessionData.user.id);
         } catch (e) {
-          console.error("Failed to parse registration cookie", e);
+          logger.error("Failed to parse registration cookie", e);
         }
       }
 

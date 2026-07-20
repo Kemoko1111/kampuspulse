@@ -5,6 +5,7 @@ import { RideRepository } from "@/lib/repositories/ride.repository";
 import { NotificationService } from "@/lib/services/notification.service";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { calculateFare, type FareSettings } from "@/lib/services/fare.service";
+import { logger } from "@/lib/logger";
 import { PaymentService } from "@/lib/services/payment.service";
 
 // Rider-driven steps (only the assigned rider taps through these, matching
@@ -96,7 +97,7 @@ export class RideService {
           title: "New Ride Request",
           body: "A new ride request is available. Open the driver app to accept.",
           data: { ride_id: rideId },
-        }).catch((e) => console.error("Rider ping failed:", e))
+        }).catch((e) => logger.error("Rider ping failed", e, { rideId }))
       )
     );
   }
@@ -222,7 +223,7 @@ export class RideService {
         metadata: { ...meta, gross, platform_fee_rate: 0.1 },
       } as never);
     } catch (e) {
-      console.error("Rider earnings credit failed:", e);
+      logger.error("Rider earnings credit failed", e, { riderId, gross, label });
     }
   }
 }

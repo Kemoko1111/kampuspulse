@@ -4,6 +4,7 @@ import { RideRepository } from "@/lib/repositories/ride.repository";
 import { NotificationService } from "@/lib/services/notification.service";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { calculateFare, type FareSettings } from "@/lib/services/fare.service";
+import { logger } from "@/lib/logger";
 
 const DEFAULT_DELIVERY_FARE: FareSettings = { base_fare: 8, per_km_rate: 3, per_min_rate: 0.75 };
 
@@ -104,7 +105,7 @@ export class DeliveryService {
           title: "New Delivery Request",
           body: "A new delivery request is available. Open the driver app to accept.",
           data: { delivery_id: deliveryId },
-        }).catch((e) => console.error("Rider ping failed:", e))
+        }).catch((e) => logger.error("Rider ping failed", e, { deliveryId }))
       )
     );
   }
@@ -283,7 +284,7 @@ export class DeliveryService {
         metadata: { ...meta, gross, platform_fee_rate: 0.1 },
       } as never);
     } catch (e) {
-      console.error("Rider earnings credit failed:", e);
+      logger.error("Rider earnings credit failed", e, { riderId, gross, label });
     }
   }
 }

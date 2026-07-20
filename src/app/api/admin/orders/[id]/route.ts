@@ -4,6 +4,7 @@ import { requireRole } from "@/lib/middleware/auth";
 import { AppError } from "@/lib/errors/app-error";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NotificationService } from "@/lib/services/notification.service";
+import { logger } from "@/lib/logger";
 
 // Buyer-facing labels for the order statuses an admin can set.
 const ORDER_STATUS_MESSAGE: Record<string, string> = {
@@ -234,7 +235,7 @@ export async function PATCH(
           data: { order_id: id, status: newStatus },
         });
       } catch (e) {
-        console.error("Order status notification failed:", e);
+        logger.error("Order status notification failed", e, { orderId: id, status: newStatus });
       }
     }
 

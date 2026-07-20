@@ -5,6 +5,7 @@ import { validateCsrf } from "@/lib/middleware/csrf";
 import { sanitizeText } from "@/lib/middleware/sanitize";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NotificationService } from "@/lib/services/notification.service";
+import { logger } from "@/lib/logger";
 
 export async function GET(
   request: NextRequest,
@@ -116,7 +117,7 @@ export async function POST(
           data: { room_id: roomId, sender_id: profile.id },
         });
       } catch (e) {
-        console.error("Message notification failed:", e);
+        logger.error("Message notification failed", e, { roomId });
       }
     }
 

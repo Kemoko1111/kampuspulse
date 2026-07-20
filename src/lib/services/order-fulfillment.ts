@@ -1,4 +1,5 @@
 import type { TypedSupabaseClient } from "@/lib/supabase/types";
+import { logger } from "@/lib/logger";
 
 // Called once when an order's payment is CONFIRMED. Stock decrement and cart
 // clearing happen here (at success) rather than at order creation, so an
@@ -27,7 +28,11 @@ export async function fulfillPaidOrder(supabase: TypedSupabaseClient, orderId: s
     // payment (rare, low-concurrency) — the order is paid but short on stock,
     // which needs manual resolution. Log rather than fail the payment webhook.
     if (error || !ok) {
-      console.error(`Stock decrement failed for product ${item.product_id} on order ${orderId}`);
+      logger.error("Stock decrement failed for a paid order — needs manual resolution", error, {
+        productId: item.product_id,
+        orderId,
+        quantity: item.quantity,
+      });
     }
   }
 
